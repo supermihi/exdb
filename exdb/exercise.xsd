@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="1">
+
+<!-- An attribute type allowing only certain language codes (currently: DE or EN) -->
+<xs:simpleType name="langattr">
+    <xs:restriction base="xs:string">
+        <xs:enumeration value="DE"/>
+        <xs:enumeration value="EN"/>
+    </xs:restriction>
+</xs:simpleType>
+
+<!-- A type that enforce a "lang" attribute of type "langattr" -->
+<xs:complexType name="textype">
+    <xs:simpleContent>
+        <xs:extension base="xs:string">
+            <xs:attribute name="lang" type="langattr" use="required"/>
+        </xs:extension>
+    </xs:simpleContent>
+</xs:complexType>
+
+<!-- Type for tags: Tokens that don't contain a comma (which is used to separate tags -->
+<xs:simpleType name="tagtype">
+    <xs:restriction base="xs:token">
+        <xs:pattern value="[^,]+"/>
+    </xs:restriction>
+</xs:simpleType>
+
+<xs:element name="exercise">
+    <xs:complexType>
+        <xs:sequence>
+            <xs:element name="creator" type="xs:string"/>
+            <xs:element name="description" type="xs:string"/>
+            <xs:element name="modified" type="xs:dateTime"/>
+            <xs:element name="tex_preamble" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+            <xs:element name="tex_exercise" type="textype" maxOccurs="unbounded"/>
+            <xs:element name="tex_solution" type="textype" minOccurs="0" maxOccurs="unbounded"/>
+            <xs:element name="tag" type="tagtype" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:attribute name="schemaversion" type="xs:integer" use="required"/>
+        <xs:attribute name="id" type="xs:integer" use="required"/>
+    </xs:complexType>
+    <xs:unique name="onlyOneExercisePerLanguage">
+        <xs:selector xpath="tex_exercise"/>
+        <xs:field    xpath="@lang"/>
+    </xs:unique>
+    <xs:unique name="onlyOneSolutionPerLanguage">
+        <xs:selector xpath="tex_solution"/>
+        <xs:field    xpath="@lang"/>
+    </xs:unique>
+</xs:element>
+
+</xs:schema>
