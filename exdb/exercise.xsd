@@ -29,6 +29,7 @@
     <xs:complexType>
         <xs:sequence>
             <xs:element name="creator" type="xs:string"/>
+            <xs:element name="number" type="xs:integer"/>
             <xs:element name="description" type="xs:string"/>
             <xs:element name="modified" type="xs:dateTime"/>
             <xs:element name="tex_preamble" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
@@ -37,7 +38,6 @@
             <xs:element name="tag" type="tagtype" minOccurs="0" maxOccurs="unbounded"/>
         </xs:sequence>
         <xs:attribute name="schemaversion" type="xs:integer" use="required"/>
-        <xs:attribute name="id" type="xs:integer" use="required"/>
     </xs:complexType>
     <xs:unique name="onlyOneExercisePerLanguage">
         <xs:selector xpath="tex_exercise"/>
