@@ -25,7 +25,7 @@ validXML=b"""<?xml version='1.0' encoding='utf-8'?>
 </exercise>
 """
 
-class TestXML(unittest.TestCase):
+class XMLImportExportTest(unittest.TestCase):
     
     def test_importValidXML(self):
         exercise = Exercise.fromXMLString(validXML)
@@ -37,6 +37,7 @@ class TestXML(unittest.TestCase):
         self.assertIn('DE', exercise.tex_solution)
         self.assertIn('EN', exercise.tex_solution)
         self.assertNotIn('EN', exercise.tex_exercise)
+        self.assertIsInstance(exercise.number, int)
         
     def test_importInvalidXML(self):
         vlines = validXML.splitlines()
@@ -54,4 +55,4 @@ class TestXML(unittest.TestCase):
         self.assertRaises(VersionMismatchError, lambda : Exercise.fromXMLString(invalidXML))
 
     def test_xmlExport(self):
-        self.assertEqual(Exercise.fromXMLString(validXML).toXML(), validXML)
+        self.assertEqual(Exercise.fromXMLString(validXML).toXML(), validXML) 

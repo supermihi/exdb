@@ -10,9 +10,12 @@ import json
 from os.path import dirname, join
 from .exercise import Exercise
 
-def connect():
-    from . import sqlitePath
-    conn = sqlite3.connect(sqlitePath)
+dbPath = None
+
+def connect(database=None):
+    if database is None:
+        database = dbPath
+    conn = sqlite3.connect(dbPath)
     conn.execute("PRAGMA foreign_keys = ON;")
     conn.row_factory = sqlite3.Row
     return conn

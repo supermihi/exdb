@@ -10,36 +10,46 @@ from os import mkdir, makedirs, remove
 import shutil
 import subprocess
 
-repoPath = None
-sqlitePath = None
+repoPath = sqlitePath = None
 
-def init(repo, sqlite):
+def init(instancepath):
     global repoPath, sqlitePath
-    repoPath = repo
-    sqlitePath = sqlite
-    
-def makePlayground(path, reset=False):
+    repoPath = join(instancepath, "repo")
+    sqlitePath = join(instancepath, "database.sqlite")
+
+def createInstance(path, reset=False):
     repo = join(path, "repo")
-    sqlite = join(path, "test.sqlite")
-    init(repo, sqlite)
+    sqlite = join(path, "database.sqlite")
+    
     if exists(path):
         if reset:
-            if exists(repoPath) and exists(join(repoPath, ".hg")):
-                shutil.rmtree(repoPath)
-            if exists(sqlitePath):
-                remove(sqlitePath)
+            if exists(repo) and exists(join(repo, ".hg")):
+                shutil.rmtree(repo)
+            if exists(sqlite):
+                remove(sqlite)
     else:
         makedirs(path)
-    if not exists(repoPath):
-        mkdir(repoPath)
-        subprocess.check_call(["hg", "init"], cwd=repoPath)
-    if not exists(sqlitePath):
+    if not exists(repo):
+        mkdir(repo)
+        subprocess.check_call(["hg", "init"], cwd=repo)
+        for subdir in ("templates", "exercises"):
+            mkdir(join(repo, subdir))
+        
+    if not exists(sqlite):
         sql.createDb()
+    init(path)
+
+def exerciseDirectory(exercise):
+    """Return the directory inside the repository where *exercise* is (or should be) located.
+    
+    The result is an absolute path.
+    """
+    return join(repoPath, 'exercises', exercise.identifier()) 
 
 def addExercise(exercise):
     """Add an exercise to the repository."""
     sql.addExercise(exercise) # this creates the number also
-    basePath = join(repoPath, exercise.identifier())
+    basePath = exerciseDirectory(exercise)
     assert not exists(basePath)
     mkdir(basePath)
     xmlPath = join(basePath, exercise.identifier() + ".xml")

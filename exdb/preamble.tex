@@ -1,0 +1,164 @@
+\usepackage{ifxetex}
+\usepackage{ifluatex}
+\usepackage{ifthen}
+\usepackage{babel}
+\usepackage{amsfonts,amsmath,amssymb}
+
+\ifxetex
+  \RequirePackage{xltxtra}
+  \RequirePackage{fontspec}
+  \defaultfontfeatures{Mapping=tex-text} % damit -- und --- funktionieren
+  \RequirePackage{unicode-math}
+  \setromanfont[Numbers=Proportional]{Linux Libertine O}
+  \setsansfont[Numbers=Proportional]{Linux Biolinum O} %
+  \setmonofont{Inconsolata}
+  \setmathfont[StylisticSet=0]{XITS Math}
+\else
+  \ifluatex
+    \RequirePackage{fontspec}
+    \defaultfontfeatures{Mapping=tex-text} % damit -- und --- funktionieren
+    \setromanfont[Numbers=Proportional]{Linux Libertine O}
+    \setsansfont[Numbers=Proportional]{Linux Biolinum O} %
+    \RequirePackage{unicode-math}
+    \setmathfont[StylisticSet=0]{XITS Math}
+  \else
+    \RequirePackage[utf8]{inputenc}
+    \usepackage{csquotes}
+    \RequirePackage[T1]{fontenc}
+    \RequirePackage{libertine}
+  \fi
+\fi
+
+\usepackage{enumitem}
+\setlist[enumerate,1]{label=\alph*)}
+\setlist[enumerate,2]{label=\arabic*.}
+
+\usepackage{tikz}
+
+% some handy styles for drawing graphs
+\tikzstyle{v}=[draw,circle,inner sep=.8mm,minimum size=4mm] % vertex
+\tikzstyle{a}=[->,sloped] % arc
+\tikzstyle{e}=[sloped] % edge
+
+\usepackage{mathtools}
+\usepackage{IEEEtrantools}
+\usepackage{xspace}
+\usepackage[amssymb]{SIunits}
+
+
+% Mathematical symbols and abbreviations
+
+% number sets
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\R}{\mathbb{R}}
+\ifx\C\undefined
+  \newcommand{\C}{\mathbb{C}}
+\else
+  \renewcommand{\C}{\mathbb{C}}
+\fi
+\newcommand{\F}{\mathbb{F}}
+
+\renewcommand{\O}{\mathcal{O}} % Landau symbol
+\newcommand{\E}{\mathbb{E}} % expectation
+
+
+\newcommand{\abs}[1]{\left\lvert #1 \right\rvert} % absolute value
+\newcommand{\norm}[1]{\left\| #1 \right\|} % norm
+\newcommand{\gauss}[1]{\left\lfloor #1 \right\rfloor} % floor operator
+\newcommand{\op}[1]{\operatorname{#1}} % just an abbreviation
+
+% typographically correct punctuation marks in math mode
+\newcommand\tp{\text{.}}
+\newcommand\tk{\text{,}}
+\newcommand\ts{\text{;}}
+
+\newcommand\definedAs{\vcentcolon=} % := with vertically centered column (requires mathtools)
+
+% some operators
+\DeclareMathOperator{\ggT}{ggT} % größter gemeinsamer Teiler
+\DeclareMathOperator{\kgV}{kgV} % kleinstes gemeinsames Vielfaches
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator{\conv}{conv} % convex hull
+\DeclareMathOperator{\aff}{aff} % affine hull
+\DeclareMathOperator{\eq}{eq} %equality set (polyhedra)
+\DeclareMathOperator{\rank}{rank}
+\DeclareMathOperator{\spn}{span}
+
+% common abbreviations
+
+\newcommand{\zB}{\text{z.\,B.}\xspace}
+\newcommand\st{\text{s.\,t.}\xspace}
+\newcommand\ie{\text{i.\,e.}\xspace}
+\newcommand\eg{\text{e.\,g.}\xspace}
+
+% references (package prettyref)
+\usepackage{prettyref}
+\newrefformat{eq}{\textup{(\ref{#1})}}
+\newrefformat{def}{Definition~\ref{#1}}
+\newrefformat{lemma}{Lemma~\ref{#1}}
+\iflanguage{ngerman}{
+ 	\newrefformat{alg}{Algorithmus~\ref{#1}}
+ 	\newrefformat{fig}{Abbildung~\ref{#1}}
+ 	\newrefformat{rem}{Bemerkung~\ref{#1}}
+ 	\newrefformat{example}{Beispiel~\ref{#1}}
+ 	\newrefformat{chapter}{Kapitel~\ref{#1}}
+ 	\newrefformat{sec}{Abschnitt~\ref{#1}}
+ 	\newrefformat{thm}{Satz~\ref{#1}}
+ 	\newrefformat{obs}{Beobachtung~\ref{#1}}
+ 	\newrefformat{cor}{Korollar~\ref{#1}}
+ 	\newrefformat{line}{Zeile~\ref{#1}}
+ 	\newrefformat{table}{Tabelle~\ref{#1}}
+}{
+	\newrefformat{alg}{Algorithm~\ref{#1}}
+	\newrefformat{fig}{Figure~\ref{#1}}
+	\newrefformat{rem}{Remark~\ref{#1}}
+	\newrefformat{example}{Example~\ref{#1}}
+	\newrefformat{chapter}{Chapter~\ref{#1}}
+	\newrefformat{sec}{Section~\ref{#1}}
+	\newrefformat{thm}{Theorem~\ref{#1}}
+	\newrefformat{obs}{Observation~\ref{#1}}
+	\newrefformat{cor}{Corollary~\ref{#1}}
+	\newrefformat{line}{Line~\ref{#1}}
+	\newrefformat{table}{Table~\ref{#1}}
+}
+
+
+% theorem environments
+\usepackage[amsmath,thmmarks]{ntheorem}
+\qedsymbol{\ensuremath{_\Box}}
+
+% statements in italics
+\theorembodyfont{\itshape}
+\theoremseparator{:}
+
+\theoremstyle{plain} % name followed by number
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{satz}{Satz}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{algo}[theorem]{Algorithm}
+\newtheorem{observation}[theorem]{Observation}
+
+% examples, definitions and so on in normal font and with a nice triangle at the end
+\theorembodyfont{\normalfont}
+\theoremsymbol{\ensuremath{_\lhd}}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+\newtheorem{beispiel}[theorem]{Beispiel}
+\newtheorem{problem}[theorem]{Problem}
+\newtheorem{remark}[theorem]{Remark}
+
+\theoremsymbol{}
+\theoremstyle{nonumberplain}
+\theoremseparator{.}
+\theoremheaderfont{\normalfont\bfseries\itshape}
+\theoremsymbol{\ensuremath{_\Box}}
+\newtheorem{proof}{Proof}
+\newtheorem{beweis}{Beweis}
+\theoremseparator{}
+\theoremindent0cm
+\newtheorem{fakeproof}{}

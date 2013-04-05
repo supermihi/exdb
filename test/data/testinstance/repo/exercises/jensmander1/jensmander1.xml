@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='utf-8'?>
+<exercise xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" schemaversion="1" xsi:noNamespaceSchemaLocation="exercise.xsd">
+  <creator>jensmander</creator>
+  <number>1</number>
+  <description>Eine Aufgabe</description>
+  <modified>2013-04-05T10:10:00</modified>
+  <tex_preamble>\usepackage[utf8]{inputenc}</tex_preamble>
+  <tex_exercise lang="DE">$x^2$</tex_exercise>
+  <tex_exercise lang="EN">$y^3$</tex_exercise>
+  <tag>Linear Optimization</tag>
+  <tag>Analysis</tag>
+</exercise>
