@@ -7,26 +7,33 @@
 
 import sqlite3
 import json
-from os.path import dirname, join
+from os.path import dirname, exists, join
 from .exercise import Exercise
 
-dbPath = None
+def sqlPath():
+    import exdb
+    return join(exdb.instancePath, "database.sqlite")
+
 
 def connect(database=None):
     if database is None:
-        database = dbPath
-    conn = sqlite3.connect(dbPath)
+        database = sqlPath()
+    conn = sqlite3.connect(database)
     conn.execute("PRAGMA foreign_keys = ON;")
     conn.row_factory = sqlite3.Row
     return conn
 
-def createDb():
-    """Creates the initial database. WARNING this deletes all data."""
-    with connect() as db:
-        with open(join(dirname(__file__), 'dbschema.sql'), "rt") as schema:
-            db.cursor().executescript(schema.read())
-    db.close()
-    
+
+def initDatabase(overwrite=False):
+    """Creates the initial database. Deletes all preexisting data if *overwrite* is True.
+    """
+    if overwrite or not exists(sqlPath()):
+            with connect() as db:
+                with open(join(dirname(__file__), 'dbschema.sql'), "rt") as schema:
+                    db.cursor().executescript(schema.read())
+            db.close()
+
+
 def addExercise(exercise):
     assert exercise.number is None
     conn = connect()

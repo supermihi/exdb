@@ -1,1 +1,6 @@
 *.pyc
+exdb.egg-info
+
+.project
+.pydevproject
+.settings

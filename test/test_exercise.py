@@ -55,4 +55,4 @@ class XMLImportExportTest(unittest.TestCase):
         self.assertRaises(VersionMismatchError, lambda : Exercise.fromXMLString(invalidXML))
 
     def test_xmlExport(self):
-        self.assertEqual(Exercise.fromXMLString(validXML).toXML(), validXML) 
+        self.assertEqual(Exercise.fromXMLString(validXML).toXML(), validXML)
