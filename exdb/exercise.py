@@ -34,6 +34,8 @@ class Exercise:
                 setattr(self, key, value)
             else:
                 raise ValueError("Unknown keyword arg '{}' for Exercise".format(key))
+        if not isinstance(self.modified, datetime.datetime):
+            self.modified = datetime.datetime.strptime(self.modified, self.DATEFMT)
     
     def identifier(self):
         return "{}{}".format(self.creator, self.number)

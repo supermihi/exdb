@@ -9,11 +9,11 @@ import sqlite3
 import json
 from os.path import dirname, exists, join
 from .exercise import Exercise
+from contextlib import contextmanager
 
 def sqlPath():
     import exdb
     return join(exdb.instancePath, "database.sqlite")
-
 
 def connect(database=None):
     if database is None:
@@ -23,6 +23,15 @@ def connect(database=None):
     conn.row_factory = sqlite3.Row
     return conn
 
+@contextmanager
+def conditionalConnect(connection):
+    if connection:
+        conn = connection
+    else:
+        conn = connect()
+    yield conn
+    if not connection:
+        conn.close()
 
 def initDatabase(overwrite=False):
     """Creates the initial database. Deletes all preexisting data if *overwrite* is True.
@@ -33,19 +42,10 @@ def initDatabase(overwrite=False):
                     db.cursor().executescript(schema.read())
             db.close()
 
+def tags(conn):
+    return [row[0] for row in conn.execute("SELECT tag FROM tags")]
 
-def addExercise(exercise):
-    assert exercise.number is None
-    conn = connect()
-    maxnr = conn.execute("SELECT MAX(number) FROM exercises WHERE creator=?", (exercise.creator,)).fetchone()[0]
-    exercise.number = 1 if maxnr is None else maxnr + 1
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO exercises(creator, number, description, modified, "
-                 "tex_exercise, tex_solution) VALUES(?, ?, ?, ?, ?, ?)",
-                 [exercise.creator, exercise.number, exercise.description, exercise.modified,
-                  json.dumps(exercise.tex_exercise, ensure_ascii=False),
-                  json.dumps(exercise.tex_solution, ensure_ascii=False)])
-    exid = cursor.lastrowid
+def updateTagsAndPreambles(exercise, exid, cursor):
     tagids = []
     for tag in exercise.tags:
         result = cursor.execute("SELECT id FROM tags WHERE tag=?", (tag,)).fetchone()
@@ -66,36 +66,76 @@ def addExercise(exercise):
             preid = result["id"]
         preambleids.append(preid)
     cursor.executemany("INSERT INTO ex_pre_rel(exercise, preamble) VALUES(?,?)", [ (exid,preid) for preid in preambleids ])
-    conn.commit()
-    conn.close()
-        
-def exercises():
-    conn = connect()
-    exercises = []
-    def readTable(name):
-        dct = {}
-        for row in conn.execute("SELECT * FROM {}".format(name)):
-            dct[row["id"]] = row
-        return dct
-    def readRelTable(name, attr):
-        dct = {}
-        for row in conn.execute("SELECT * FROM {}".format(name)):
-            if row["exercise"] not in dct:
-                dct[row["exercise"]] = []
-            dct[row["exercise"]].append(row[attr])
-        return dct
-    dbExercises = readTable("exercises")
-    dbTags = readTable("tags")
-    dbPreambles = readTable("preambles")
-    dbTagsRel = readRelTable("ex_tags_rel", "tag")
-    dbPreRel = readRelTable("ex_pre_rel", "preamble")
-    for id, row in dbExercises.items():
-        exercise = Exercise(creator=row["creator"], number=row["number"],
-                            modified=row["modified"], description=row["description"],
-                            tex_exercise=json.loads(row["tex_exercise"]), tex_solution=json.loads(row["tex_solution"]))
-        if id in dbTagsRel:
-            exercise.tags = [ dbTags[tagid]["tag"] for tagid in dbTagsRel[id]]
-        if id in dbPreRel:
-            exercise.tex_preamble = [ dbPreambles[preid]["tex_preamble"] for preid in dbPreRel[id] ]
-        exercises.append(exercise)
+
+
+def addExercise(exercise, connection=None):
+    assert exercise.number is None
+    with conditionalConnect(connection) as conn:
+        maxnr = conn.execute("SELECT MAX(number) FROM exercises WHERE creator=?", (exercise.creator,)).fetchone()[0]
+        exercise.number = 1 if maxnr is None else maxnr + 1
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO exercises(creator, number, description, modified, "
+                     "tex_exercise, tex_solution) VALUES(?, ?, ?, ?, ?, ?)",
+                     [exercise.creator, exercise.number, exercise.description, exercise.modified.strftime(exercise.DATEFMT),
+                      json.dumps(exercise.tex_exercise, ensure_ascii=False),
+                      json.dumps(exercise.tex_solution, ensure_ascii=False)])
+        exid = cursor.lastrowid
+        updateTagsAndPreambles(exercise, exid, cursor)
+        conn.commit()
+
+def updateExercise(exercise, connection=None):
+    with conditionalConnect(connection) as conn:
+        cursor = conn.cursor()
+        id = cursor.execute("SELECT id FROM exercises WHERE creator=? AND number=?", (exercise.creator, exercise.number)).fetchone()[0]
+        cursor.execute("DELETE FROM ex_tags_rel WHERE exercise=?", (id,))
+        cursor.execute("DELETE FROM ex_pre_rel WHERE exercise=?", (id,))
+        updateTagsAndPreambles(exercise, id, cursor)
+        cursor.execute("UPDATE exercises SET description=?, modified=?, tex_exercise=?, tex_solution=? WHERE creator=? AND number=?",
+                       [exercise.description, exercise.modified.strftime(exercise.DATEFMT),
+                        json.dumps(exercise.tex_exercise), json.dumps(exercise.tex_solution),
+                        exercise.creator, exercise.number])
+        conn.commit()
+
+def exercises(connection=None):
+    with conditionalConnect(connection) as conn:
+        exercises = []
+        def readTable(name):
+            dct = {}
+            for row in conn.execute("SELECT * FROM {}".format(name)):
+                dct[row["id"]] = row
+            return dct
+        def readRelTable(name, attr):
+            dct = {}
+            for row in conn.execute("SELECT * FROM {}".format(name)):
+                if row["exercise"] not in dct:
+                    dct[row["exercise"]] = []
+                dct[row["exercise"]].append(row[attr])
+            return dct
+        dbExercises = readTable("exercises")
+        dbTags = readTable("tags")
+        dbPreambles = readTable("preambles")
+        dbTagsRel = readRelTable("ex_tags_rel", "tag")
+        dbPreRel = readRelTable("ex_pre_rel", "preamble")
+        for id, row in dbExercises.items():
+            exercise = Exercise(creator=row["creator"], number=row["number"],
+                                modified=row["modified"], description=row["description"],
+                                tex_exercise=json.loads(row["tex_exercise"]), tex_solution=json.loads(row["tex_solution"]))
+            if id in dbTagsRel:
+                exercise.tags = [ dbTags[tagid]["tag"] for tagid in dbTagsRel[id]]
+            if id in dbPreRel:
+                exercise.tex_preamble = [ dbPreambles[preid]["tex_preamble"] for preid in dbPreRel[id] ]
+            exercises.append(exercise)
     return exercises
+
+def exercise(creator, number, connection=None):
+    with conditionalConnect(connection) as conn:
+        ex = conn.execute("SELECT * FROM exercises WHERE creator=? AND number=?", (creator, number)).fetchone()
+        if not ex:
+            raise ValueError("No exercise found for creator {} and number {}".format(creator, number))
+        tags = [row[0] for row in conn.execute("SELECT tag FROM tags WHERE id IN (SELECT tag FROM ex_tags_rel WHERE exercise=?)", (ex["id"],))]
+        preambles = [row[0] for row in conn.execute("SELECT tex_preamble FROM preambles WHERE id IN (SELECT preamble FROM ex_pre_rel WHERE exercise=?)", (ex["id"],))]
+        exercise = Exercise(creator=ex["creator"], number=ex["number"], modified=ex["modified"], description=ex["description"],
+                            tex_exercise=json.loads(ex["tex_exercise"]), tex_solution=json.loads(ex["tex_solution"]),
+                            tags=tags, tex_preamble=preambles)
+    return exercise
+    

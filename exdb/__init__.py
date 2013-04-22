@@ -9,6 +9,7 @@ from os.path import dirname, exists, join, relpath
 from os import mkdir, makedirs, remove
 import shutil
 import subprocess
+import datetime
 
 
 instancePath = None
@@ -30,15 +31,22 @@ def createInstance(path, overwrite=False):
         mkdir(previewPath)
     sql.initDatabase(overwrite)
 
-def addExercise(exercise, createPreviews=True):
+def addExercise(exercise, createPreviews=True, connection=None):
     """Add an exercise to the repository."""
     if createPreviews:
         previews = exercise.createPreviews()
     else:
         previews = None
-    sql.addExercise(exercise) # this also sets exercise.number
+    sql.addExercise(exercise, connection=connection) # this also sets exercise.number
     repo.addExercise(exercise, previews)
     
+def updateExercise(exercise, connection=None):
+    assert exercise.number is not None
+    assert exercise.creator is not None
+    exercise.modified = datetime.datetime.now()
+    previews = exercise.createPreviews()
+    sql.updateExercise(exercise, connection=connection)
+    repo.updateExercise(exercise, previews)
     
 def exercises():
     """Returns a list of ALL exercises from the database."""

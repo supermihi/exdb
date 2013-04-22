@@ -47,6 +47,8 @@ def initRepository(path, overwrite=False):
     myDir = dirname(__file__)
     for texfile in "template.tex", "preamble.tex":
         shutil.copy(join(myDir, texfile), templatePath())
+        callHg("add", join("templates", texfile))
+    callHg("commit", "-u", "system", "-m", "Initial setup")
 
 def addExercise(exercise, previews={}):
     """Adds the given exercise to the repository."""
@@ -58,6 +60,19 @@ def addExercise(exercise, previews={}):
         f.write(exercise.toXML())
     commitMessage = "ADD {}".format(exercise.identifier())
     callHg("add", relpath(xmlPath, repoPath()))
+    callHg("commit", "-u", exercise.creator, "-m", commitMessage)
+    for filename, imagePath in previews.items():
+        shutil.copyfile(imagePath, join(basePath, filename))
+        shutil.rmtree(dirname(imagePath))
+        
+def updateExercise(exercise, previews={}):
+    """Updates the given exercise"""
+    basePath = exercisePath(exercise)
+    assert exists(basePath)
+    xmlPath = join(basePath, exercise.identifier() + ".xml")
+    with open(xmlPath, "wt") as f:
+        f.write(exercise.toXML())
+    commitMessage = "EDIT {}".format(exercise.identifier())
     callHg("commit", "-u", exercise.creator, "-m", commitMessage)
     for filename, imagePath in previews.items():
         shutil.copyfile(imagePath, join(basePath, filename))

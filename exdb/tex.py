@@ -64,6 +64,10 @@ def makePreview(texcode, lang="DE", preambles=[], compiler="pdflatex", templateD
         h.update(compiler)
         h.update(texcode.encode('utf-8'))
         tmpdir = join(previewPath(), h.hexdigest())
+        if os.path.exists(tmpdir):
+            image = os.path.join(tmpdir, "preview.png")
+            assert os.path.exists(image)
+            return image
         os.mkdir(tmpdir)
     else:
         tmpdir = tempfile.mkdtemp()
