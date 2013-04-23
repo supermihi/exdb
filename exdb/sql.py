@@ -34,13 +34,25 @@ def conditionalConnect(connection):
         conn.close()
 
 def initDatabase(overwrite=False):
-    """Creates the initial database. Deletes all preexisting data if *overwrite* is True.
+    """Initialize the database.
+    
+    Deletes all preexisting data if *overwrite* is True. Returns True if and only if the tables
+    have been newly created.    
     """
+    createTables = False
     if overwrite or not exists(sqlPath()):
-            with connect() as db:
-                with open(join(dirname(__file__), 'dbschema.sql'), "rt") as schema:
-                    db.cursor().executescript(schema.read())
-            db.close()
+        createTables = True
+    else:
+        with connect() as db:
+            ans = set(row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table';"))
+            if "exercises" not in ans:
+                createTables = True
+    if createTables:    
+        with connect() as db:
+            with open(join(dirname(__file__), 'dbschema.sql'), "rt") as schema:
+                db.cursor().executescript(schema.read())
+        db.close()
+    return createTables
 
 def tags(conn):
     return [row[0] for row in conn.execute("SELECT tag FROM tags")]
@@ -69,10 +81,10 @@ def updateTagsAndPreambles(exercise, exid, cursor):
 
 
 def addExercise(exercise, connection=None):
-    assert exercise.number is None
     with conditionalConnect(connection) as conn:
-        maxnr = conn.execute("SELECT MAX(number) FROM exercises WHERE creator=?", (exercise.creator,)).fetchone()[0]
-        exercise.number = 1 if maxnr is None else maxnr + 1
+        if exercise.number is None:
+            maxnr = conn.execute("SELECT MAX(number) FROM exercises WHERE creator=?", (exercise.creator,)).fetchone()[0]
+            exercise.number = 1 if maxnr is None else maxnr + 1
         cursor = conn.cursor()
         cursor.execute("INSERT INTO exercises(creator, number, description, modified, "
                      "tex_exercise, tex_solution) VALUES(?, ?, ?, ?, ?, ?)",
@@ -96,12 +108,20 @@ def updateExercise(exercise, connection=None):
                         exercise.creator, exercise.number])
         conn.commit()
 
-def exercises(connection=None):
+
+def removeExercise(creator, number, connection=None):
+    with conditionalConnect(connection) as conn:
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM exercises WHERE creator=? AND number=?', (creator, number))
+        conn.commit()
+
+
+def exercises(ids=None, connection=None):
     with conditionalConnect(connection) as conn:
         exercises = []
-        def readTable(name):
+        def readTable(name, whereClause=""):
             dct = {}
-            for row in conn.execute("SELECT * FROM {}".format(name)):
+            for row in conn.execute("SELECT * FROM {} {}".format(name, whereClause)):
                 dct[row["id"]] = row
             return dct
         def readRelTable(name, attr):
@@ -111,7 +131,10 @@ def exercises(connection=None):
                     dct[row["exercise"]] = []
                 dct[row["exercise"]].append(row[attr])
             return dct
-        dbExercises = readTable("exercises")
+        if ids:
+            dbExercises = readTable("exercises", "WHERE id IN ({})".format(", ".join(str(id) for id in ids)))
+        else:
+            dbExercises = readTable("exercises")
         dbTags = readTable("tags")
         dbPreambles = readTable("preambles")
         dbTagsRel = readRelTable("ex_tags_rel", "tag")
@@ -126,6 +149,15 @@ def exercises(connection=None):
                 exercise.tex_preamble = [ dbPreambles[preid]["tex_preamble"] for preid in dbPreRel[id] ]
             exercises.append(exercise)
     return exercises
+
+def searchExercises(tags=[], connection=None):
+    with conditionalConnect(connection) as conn:
+        if len(tags) == 0:
+            return exercises(connection=conn)
+        result = conn.execute("SELECT exercise FROM ex_tags_rel WHERE tag IN (SELECT id FROM tags WHERE tag IN ({}))"
+                             .format(', '.join('"{}"'.format(tag) for tag in tags)));
+        ids = [ row[0] for row in result ]
+        return exercises(ids=ids, connection=conn)
 
 def exercise(creator, number, connection=None):
     with conditionalConnect(connection) as conn:

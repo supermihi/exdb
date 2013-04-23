@@ -20,8 +20,8 @@ DROP TABLE IF EXISTS ex_pre_rel;
 CREATE TABLE ex_pre_rel (
     exercise INTEGER,
     preamble INTEGER,
-    FOREIGN KEY(exercise) REFERENCES exercises(id),
-    FOREIGN KEY(preamble) REFERENCES preambles(id)
+    FOREIGN KEY(exercise) REFERENCES exercises(id) ON DELETE CASCADE,
+    FOREIGN KEY(preamble) REFERENCES preambles(id) ON DELETE CASCADE
 );
 
 DROP TABLE IF EXISTS tags;
@@ -34,7 +34,7 @@ DROP TABLE IF EXISTS ex_tags_rel;
 CREATE TABLE ex_tags_rel (
     exercise INTEGER,
     tag INTEGER,
-    FOREIGN KEY(exercise) REFERENCES exercises(id),
-    FOREIGN KEY(tag) REFERENCES tags(id)
+    FOREIGN KEY(exercise) REFERENCES exercises(id) ON DELETE CASCADE,
+    FOREIGN KEY(tag) REFERENCES tags(id) ON DELETE CASCADE
 );
     

@@ -65,7 +65,7 @@ def addExercise(exercise, previews={}):
         shutil.copyfile(imagePath, join(basePath, filename))
         shutil.rmtree(dirname(imagePath))
         
-def updateExercise(exercise, previews={}):
+def updateExercise(exercise, previews={}, user=None):
     """Updates the given exercise"""
     basePath = exercisePath(exercise)
     assert exists(basePath)
@@ -73,7 +73,14 @@ def updateExercise(exercise, previews={}):
     with open(xmlPath, "wt") as f:
         f.write(exercise.toXML())
     commitMessage = "EDIT {}".format(exercise.identifier())
-    callHg("commit", "-u", exercise.creator, "-m", commitMessage)
+    callHg("commit", "-u", user or exercise.creator, "-m", commitMessage)
     for filename, imagePath in previews.items():
         shutil.copyfile(imagePath, join(basePath, filename))
         shutil.rmtree(dirname(imagePath))
+        
+def removeExercise(creator, number, user=None):
+    path = join(repoPath(), "exercises", "{}{}".format(creator, number))
+    callHg("remove", relpath(path, repoPath()))
+    commitMessage = "REMOVE {}{}".format(creator,number)
+    callHg("commit", "-u", user or creator, "-m", commitMessage)
+    shutil.rmtree(path)

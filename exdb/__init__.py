@@ -10,6 +10,7 @@ from os import mkdir, makedirs, remove
 import shutil
 import subprocess
 import datetime
+import logging
 
 
 instancePath = None
@@ -17,6 +18,23 @@ instancePath = None
 def init(instancepath):
     global instancePath
     instancePath = instancepath
+    if instancepath is not None and sql.initDatabase(False):
+        populateDatabase()
+    
+def populateDatabase():
+    logging.info("populating database")
+    import glob
+    from .exercise import Exercise
+    conn = sql.connect()
+    for xmlPath in glob.glob(join(repo.repoPath(), "exercises", "*", "*.xml")):
+        with open(xmlPath, "rt") as xmlFile:
+            xml = xmlFile.read()
+        exercise = Exercise.fromXMLString(xml)
+        sql.addExercise(exercise, connection=conn)
+    conn.close()
+    
+    
+    
 
 def createInstance(path, overwrite=False):
     init(path)
@@ -40,14 +58,18 @@ def addExercise(exercise, createPreviews=True, connection=None):
     sql.addExercise(exercise, connection=connection) # this also sets exercise.number
     repo.addExercise(exercise, previews)
     
-def updateExercise(exercise, connection=None):
+def updateExercise(exercise, connection=None, user=None):
     assert exercise.number is not None
     assert exercise.creator is not None
     exercise.modified = datetime.datetime.now()
     previews = exercise.createPreviews()
     sql.updateExercise(exercise, connection=connection)
-    repo.updateExercise(exercise, previews)
-    
+    repo.updateExercise(exercise, previews, user)
+
+def removeExercise(creator, number, connection=None, user=None):
+    sql.removeExercise(creator, number, connection=connection)
+    repo.removeExercise(creator, number, user)
+
 def exercises():
     """Returns a list of ALL exercises from the database."""
     return sql.exercises()

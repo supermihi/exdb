@@ -106,7 +106,7 @@ def makePreview(texcode, lang="DE", preambles=[], compiler="pdflatex", templateD
         shutil.rmtree(tmpdir)
         raise CompilationError(e.message, e.output)
     try:
-        subprocess.check_call(["convert", "-density", "300", "template.pdf", "preview.png"],
+        subprocess.check_call(["convert", "-density", "200", "template.pdf", "preview.png"],
                               cwd=tmpdir)
     except subprocess.CalledProcessError as e:
         shutil.rmtree(tmpdir)

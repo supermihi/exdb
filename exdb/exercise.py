@@ -15,7 +15,7 @@ class VersionMismatchError(Exception):
     def __init__(self, ours, yours):
         Exception.__init__(self, "Schema version {} is too recent (expected <= {})".format(yours, ours))
 
-class Exercise:
+class Exercise(dict):
     
     DATEFMT = "%Y-%m-%dT%H:%M:%S"
     parser = None
@@ -37,6 +37,19 @@ class Exercise:
         if not isinstance(self.modified, datetime.datetime):
             self.modified = datetime.datetime.strptime(self.modified, self.DATEFMT)
     
+    def __setattr__(self, attr, value):
+        if attr in self.attributes:
+            self[attr] = value
+            return self[attr]
+        else:
+            return dict.__setattr__(self, attr, value)
+        
+    def __getattr__(self, attr):
+        if attr in self.attributes:
+            return self[attr]
+        else:
+            return dict.__getattr__(self, attr)
+
     def identifier(self):
         return "{}{}".format(self.creator, self.number)
     
