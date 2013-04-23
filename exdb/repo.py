@@ -23,7 +23,7 @@ def exercisePath(exercise):
 def callHg(*args, **kwargs):
     if "cwd" not in kwargs:
         kwargs["cwd"] = repoPath()
-    return subprocess.check_call(["hg"] + list(args), **kwargs)
+    return subprocess.check_output(["hg"] + list(args), **kwargs)
 
 
 
@@ -64,6 +64,7 @@ def addExercise(exercise, previews={}):
     for filename, imagePath in previews.items():
         shutil.copyfile(imagePath, join(basePath, filename))
         shutil.rmtree(dirname(imagePath))
+    pushIfRemote()
         
 def updateExercise(exercise, previews={}, user=None):
     """Updates the given exercise"""
@@ -77,6 +78,7 @@ def updateExercise(exercise, previews={}, user=None):
     for filename, imagePath in previews.items():
         shutil.copyfile(imagePath, join(basePath, filename))
         shutil.rmtree(dirname(imagePath))
+    pushIfRemote()
         
 def removeExercise(creator, number, user=None):
     path = join(repoPath(), "exercises", "{}{}".format(creator, number))
@@ -84,3 +86,9 @@ def removeExercise(creator, number, user=None):
     commitMessage = "REMOVE {}{}".format(creator,number)
     callHg("commit", "-u", user or creator, "-m", commitMessage)
     shutil.rmtree(path)
+    pushIfRemote()
+    
+def pushIfRemote():
+    ans = callHg("showconfig", "paths.default")
+    if len(ans) > 3:
+        callHg("push")
