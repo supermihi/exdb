@@ -106,6 +106,8 @@ def updateExercise(exercise, connection=None):
                        [exercise.description, exercise.modified.strftime(exercise.DATEFMT),
                         json.dumps(exercise.tex_exercise), json.dumps(exercise.tex_solution),
                         exercise.creator, exercise.number])
+        cursor.execute("DELETE FROM tags WHERE tags.id NOT IN  (SELECT tag FROM ex_tags_rel);")
+        cursor.execute("DELETE FROM preambles WHERE preambles.id NOT IN  (SELECT preamble FROM ex_pre_rel);")
         conn.commit()
 
 
@@ -113,6 +115,8 @@ def removeExercise(creator, number, connection=None):
     with conditionalConnect(connection) as conn:
         cursor = conn.cursor()
         cursor.execute('DELETE FROM exercises WHERE creator=? AND number=?', (creator, number))
+        cursor.execute("DELETE FROM tags WHERE tags.id NOT IN  (SELECT tag FROM ex_tags_rel);")
+        cursor.execute("DELETE FROM preambles WHERE preambles.id NOT IN  (SELECT preamble FROM ex_pre_rel);")
         conn.commit()
 
 

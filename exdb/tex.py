@@ -65,12 +65,14 @@ def makePreview(texcode, lang="DE", preambles=[], compiler="pdflatex", templateD
         h.update(texcode.encode('utf-8'))
         tmpdir = join(previewPath(), h.hexdigest())
         if os.path.exists(tmpdir):
+            print('found existing tex stuff')
             image = os.path.join(tmpdir, "preview.png")
             assert os.path.exists(image)
             return image
         os.mkdir(tmpdir)
     else:
         tmpdir = tempfile.mkdtemp()
+    print('preparing tex in {}'.format(tmpdir))
     # write *texcode* to exercise.tex
     with open(join(tmpdir, "exercise.tex"), "wt") as f:
         f.write(texcode.encode('utf-8'))
