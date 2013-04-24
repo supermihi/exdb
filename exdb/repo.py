@@ -47,7 +47,6 @@ def initRepository(overwrite=False):
         if not exists(join(path, subdir)):
             os.mkdir(join(path, subdir))
             callHg("add", subdir)
-            hgChanges = True
     myDir = dirname(__file__)
     for texfile in "template.tex", "preamble.tex":
         if not exists(join(templatePath(), texfile)):
