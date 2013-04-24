@@ -55,7 +55,7 @@ def initDatabase(overwrite=False):
     return createTables
 
 def tags(conn):
-    return [row[0] for row in conn.execute("SELECT tag FROM tags")]
+    return [row[0] for row in conn.execute("SELECT tag FROM tags ORDER BY tag ASC")]
 
 def updateTagsAndPreambles(exercise, exid, cursor):
     tagids = []
