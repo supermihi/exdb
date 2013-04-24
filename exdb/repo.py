@@ -29,8 +29,7 @@ def callHg(*args, **kwargs):
     return subprocess.check_output(["hg"] + list(args), **kwargs)
 
 
-
-def initRepository(path, overwrite=False):
+def initRepository(overwrite=False):
     """Creates an initial hg repository at the given *path*.
     
     If *overwrite* is True and the path exists, it will be removed without warning.
@@ -39,21 +38,27 @@ def initRepository(path, overwrite=False):
     if exists(path):
         if overwrite:
             shutil.rmtree(path)
-        else:
-            return
     else:
         os.makedirs(path)
-    callHg("init")
+    hgChanges = False
+    if not exists(join(path, ".hg")):
+        callHg("init")
     for subdir in ("templates", "exercises"):
-        os.mkdir(join(path, subdir))
-        callHg("add", subdir)
+        if not exists(join(path, subdir)):
+            os.mkdir(join(path, subdir))
+            callHg("add", subdir)
+            hgChanges = True
     myDir = dirname(__file__)
     for texfile in "template.tex", "preamble.tex":
-        shutil.copy(join(myDir, texfile), templatePath())
-        callHg("add", join("templates", texfile))
-    callHg("commit", "-u", "system", "-m", "Initial setup")
+        if not exists(join(templatePath(), texfile)):
+            shutil.copy(join(myDir, texfile), templatePath())
+            callHg("add", join("templates", texfile))
+            hgChanges = True
+    if hgChanges:
+        callHg("commit", "-u", "system", "-m", "Initial setup")
 
-def addExercise(exercise, previews={}):
+
+def addExercise(exercise):
     """Adds the given exercise to the repository."""
     basePath = exercisePath(exercise)
     assert not exists(basePath)
@@ -64,12 +69,9 @@ def addExercise(exercise, previews={}):
     commitMessage = "ADD {} {}".format(exercise.creator, exercise.number)
     callHg("add", relpath(xmlPath, repoPath()))
     callHg("commit", "-u", exercise.creator, "-m", commitMessage)
-    for filename, imagePath in previews.items():
-        shutil.copyfile(imagePath, join(basePath, filename))
-        shutil.rmtree(dirname(imagePath))
     pushIfRemote()
         
-def updateExercise(exercise, previews={}, user=None):
+def updateExercise(exercise, user=None):
     """Updates the given exercise"""
     basePath = exercisePath(exercise)
     assert exists(basePath)
@@ -78,9 +80,6 @@ def updateExercise(exercise, previews={}, user=None):
         f.write(exercise.toXML())
     commitMessage = "EDIT {} {}".format(exercise.creator, exercise.number)
     callHg("commit", "-u", user or exercise.creator, "-m", commitMessage)
-    for filename, imagePath in previews.items():
-        shutil.copyfile(imagePath, join(basePath, filename))
-        shutil.rmtree(dirname(imagePath))
     pushIfRemote()
         
 def removeExercise(creator, number, user=None):
@@ -90,7 +89,19 @@ def removeExercise(creator, number, user=None):
     callHg("commit", "-u", user or creator, "-m", commitMessage)
     shutil.rmtree(path)
     pushIfRemote()
-    
+
+def generatePreviews(exercise):
+    from . import tex
+    from datetime import datetime
+    for type in "exercise", "solution":
+        dct = getattr(exercise, "tex_{}".format(type))
+        for lang, texcode in dct.items():
+            targetPath = join(exercisePath(exercise), "{}_{}.png".format(type, lang))
+            if not exists(targetPath) or datetime.fromtimestamp(os.path.getmtime(targetPath)) < exercise.modified:
+                image = tex.makePreview(texcode, lang, exercise.tex_preamble)
+                shutil.copy(image, targetPath)
+                shutil.rmtree(dirname(image))
+
 def pushIfRemote():
     ans = callHg("showconfig", "paths.default")
     if len(ans) > 3:

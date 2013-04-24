@@ -6,7 +6,6 @@
 # published by the Free Software Foundation
 
 from os.path import join, exists
-import os
 import unittest
 
 from . import testRepoEnv
@@ -25,7 +24,7 @@ class TestAddExercise(unittest.TestCase):
                                        tags=["test", "Beispiele"])
     def test_addExercise(self):
         with testRepoEnv():
-            exdb.addExercise(self.sampleExercise, createPreviews=True)
+            exdb.addExercise(self.sampleExercise)
             self.assertEqual(len(exdb.exercises()), 1)
             exercise = exdb.exercises()[0]
             self.assertEqual(exercise.creator, "helmling")

@@ -14,12 +14,6 @@ import logging
 
 
 instancePath = None
-
-def init(instancepath):
-    global instancePath
-    instancePath = instancepath
-    if instancepath is not None and sql.initDatabase(False):
-        populateDatabase()
     
 def populateDatabase():
     logging.info("populating database")
@@ -32,39 +26,36 @@ def populateDatabase():
         exercise = Exercise.fromXMLString(xml)
         sql.addExercise(exercise, connection=conn)
     conn.close()
-    
-    
-    
 
-def createInstance(path, overwrite=False):
-    init(path)
+def init(path, overwrite=False):
+    global instancePath
+    instancePath = path
+    if path is None:
+        return
     if not exists(path):
         makedirs(path)
-    repo.initRepository(overwrite)
+    repo.initRepository(overwrite=overwrite)
     previewPath = tex.previewPath()
     if exists(previewPath) and overwrite:
         shutil.rmtree(previewPath)
     if not exists(previewPath):
-        
         mkdir(previewPath)
-    sql.initDatabase(overwrite)
+    if sql.initDatabase(overwrite):
+        populateDatabase()
 
-def addExercise(exercise, createPreviews=True, connection=None):
+def addExercise(exercise, connection=None):
     """Add an exercise to the repository."""
-    if createPreviews:
-        previews = exercise.createPreviews()
-    else:
-        previews = None
     sql.addExercise(exercise, connection=connection) # this also sets exercise.number
-    repo.addExercise(exercise, previews)
+    repo.addExercise(exercise)
+    repo.generatePreviews(exercise)
     
 def updateExercise(exercise, connection=None, user=None):
     assert exercise.number is not None
     assert exercise.creator is not None
     exercise.modified = datetime.datetime.now()
-    previews = exercise.createPreviews()
     sql.updateExercise(exercise, connection=connection)
-    repo.updateExercise(exercise, previews, user)
+    repo.updateExercise(exercise, user)
+    repo.generatePreviews(exercise)
 
 def removeExercise(creator, number, connection=None, user=None):
     sql.removeExercise(creator, number, connection=connection)

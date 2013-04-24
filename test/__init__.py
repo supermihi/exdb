@@ -19,7 +19,7 @@ def testRepoEnv():
     import exdb
     oldInstancePath = exdb.instancePath
     instancePath = tempfile.mkdtemp()
-    exdb.createInstance(instancePath)
+    exdb.init(instancePath)
     try:
         yield
     finally:

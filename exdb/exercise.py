@@ -51,27 +51,7 @@ class Exercise(dict):
             return dict.__getattr__(self, attr)
 
     def identifier(self):
-        return "{}{}".format(self.creator, self.number)
-    
-    def createPreviews(self):
-        """Generates preview images for all tex snippets defined in this exercise.
-        
-        Any compilation exceptions are left unhandled.
-        If exdb is not initialized (e.g. the compilation runs in temporary directories) these
-        will be deleted after successful compilation.
-        
-        Otherwise, a dictionary is returned mapping recommended file names to the current image
-        path.
-        """
-        from exdb.tex import makePreview
-        images = {}
-        for type in "exercise", "solution":
-            dct = getattr(self, "tex_{}".format(type))
-            for lang, texcode in dct.items():
-                images["{}_{}.png".format(type, lang)] = makePreview(texcode, lang=lang,
-                                                                     preambles=self.tex_preamble)
-        return images
-                
+        return "{}{}".format(self.creator, self.number)                
                 
     def toXML(self):
         Exercise.initXSD()

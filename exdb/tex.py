@@ -33,6 +33,10 @@ class ConversionError(Exception):
     pass
 
 
+def initPreviews():
+    from . import sql
+    for exercise in sql.exercises():
+        pass
 def makePreview(texcode, lang="DE", preambles=[], compiler="pdflatex", templateDir=None):
     """Create a preview image for the given tex code.
     
