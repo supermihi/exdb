@@ -13,6 +13,9 @@ def repoPath():
     import exdb
     return join(exdb.instancePath, "repo")
 
+def remoteUrl():
+    return callHg("showconfig", "paths.default")
+
 def templatePath():
     return join(repoPath(), "templates")
 
@@ -58,7 +61,7 @@ def addExercise(exercise, previews={}):
     xmlPath = join(basePath, exercise.identifier() + ".xml")
     with open(xmlPath, "wt") as f:
         f.write(exercise.toXML())
-    commitMessage = "ADD {}".format(exercise.identifier())
+    commitMessage = "ADD {} {}".format(exercise.creator, exercise.number)
     callHg("add", relpath(xmlPath, repoPath()))
     callHg("commit", "-u", exercise.creator, "-m", commitMessage)
     for filename, imagePath in previews.items():
@@ -73,7 +76,7 @@ def updateExercise(exercise, previews={}, user=None):
     xmlPath = join(basePath, exercise.identifier() + ".xml")
     with open(xmlPath, "wt") as f:
         f.write(exercise.toXML())
-    commitMessage = "EDIT {}".format(exercise.identifier())
+    commitMessage = "EDIT {} {}".format(exercise.creator, exercise.number)
     callHg("commit", "-u", user or exercise.creator, "-m", commitMessage)
     for filename, imagePath in previews.items():
         shutil.copyfile(imagePath, join(basePath, filename))
@@ -83,7 +86,7 @@ def updateExercise(exercise, previews={}, user=None):
 def removeExercise(creator, number, user=None):
     path = join(repoPath(), "exercises", "{}{}".format(creator, number))
     callHg("remove", relpath(path, repoPath()))
-    commitMessage = "REMOVE {}{}".format(creator,number)
+    commitMessage = "REMOVE {} {}".format(creator, number)
     callHg("commit", "-u", user or creator, "-m", commitMessage)
     shutil.rmtree(path)
     pushIfRemote()
@@ -92,3 +95,16 @@ def pushIfRemote():
     ans = callHg("showconfig", "paths.default")
     if len(ans) > 3:
         callHg("push")
+        
+def history(maxEntries=10):
+    ans = callHg("log", "--template", "{author}\t{date|isodate}\t{desc}\n", "-l", str(maxEntries))
+    entries = []
+    for line in ans.splitlines(False):
+        print(line)
+        author, date, description = line.split("\t")
+        try:
+            action, creator, number = description.split(" ")
+            entries.append(dict(author=author, date=date, action=action, creator=creator, number=number))
+        except ValueError:
+            entries.append(dict(author=author, date=date, description=description))
+    return entries
