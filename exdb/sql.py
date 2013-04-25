@@ -154,21 +154,26 @@ def exercises(ids=None, connection=None):
             exercises.append(exercise)
     return exercises
 
-def searchExercises(tags=[], connection=None):
+def searchExercises(tags=[], langs=[], connection=None):
     with conditionalConnect(connection) as conn:
-        if len(tags) == 0:
-            return exercises(connection=conn)
-        result = conn.execute("SELECT exercise, count(*) "
-                                "FROM ex_tags_rel "
-                                "WHERE tag IN (SELECT id FROM tags WHERE tag IN ({}))"
-                                "GROUP BY exercise "
-                                "HAVING count(*) = ?"
-                             .format(', '.join("?" * len(tags))),
-                             tags + [len(tags)]);
-        ids = [ row[0] for row in result ]
-        if len(ids) == 0:
-            return []
-        return exercises(ids=ids, connection=conn)
+        if len(tags) > 0:
+            result = conn.execute("SELECT exercise, count(*) "
+                                    "FROM ex_tags_rel "
+                                    "WHERE tag IN (SELECT id FROM tags WHERE tag IN ({}))"
+                                    "GROUP BY exercise "
+                                    "HAVING count(*) = ?"
+                                 .format(', '.join("?" * len(tags))),
+                                 tags + [len(tags)]);
+            ids = [ row[0] for row in result ]
+            if len(ids) == 0:
+                return []
+        else:
+            ids = None
+        exes = exercises(ids=ids, connection=conn)
+        if len(langs) > 0:
+            print('langs={}'.format(langs))
+            exes = [e for e in exes if all(lang in e.tex_exercise for lang in langs)]
+        return exes
 
 def exercise(creator, number, connection=None):
     with conditionalConnect(connection) as conn:
