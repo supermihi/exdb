@@ -89,12 +89,15 @@ def removeExercise(creator, number, user=None):
     shutil.rmtree(path)
     pushIfRemote()
 
-def generatePreviews(exercise):
+def generatePreviews(exercise, old=None):
     from . import tex
     from datetime import datetime
     for type in "exercise", "solution":
-        dct = getattr(exercise, "tex_{}".format(type))
+        dct = exercise["tex_{}".format(type)]
         for lang, texcode in dct.items():
+            if old is not None and old["tex_{}".format(type)][lang] == dct[lang]:
+                print('no update for {} {}'.format(type, lang))
+                continue
             targetPath = join(exercisePath(exercise), "{}_{}.png".format(type, lang))
             if not exists(targetPath) or datetime.fromtimestamp(os.path.getmtime(targetPath)) < exercise.modified:
                 image = tex.makePreview(texcode, lang, exercise.tex_preamble)

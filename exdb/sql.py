@@ -154,16 +154,24 @@ def exercises(ids=None, connection=None):
             exercises.append(exercise)
     return exercises
 
-def searchExercises(tags=[], langs=[], connection=None):
+def searchExercises(tags=[], langs=[], description="", connection=None):
     with conditionalConnect(connection) as conn:
+        args = []
+        wheres = []
+        query = "SELECT id FROM exercises"
         if len(tags) > 0:
-            result = conn.execute("SELECT exercise, count(*) "
-                                    "FROM ex_tags_rel "
-                                    "WHERE tag IN (SELECT id FROM tags WHERE tag IN ({}))"
-                                    "GROUP BY exercise "
-                                    "HAVING count(*) = ?"
-                                 .format(', '.join("?" * len(tags))),
-                                 tags + [len(tags)]);
+            wheres.append("id IN (SELECT exercise "
+                       "FROM ex_tags_rel "
+                       "WHERE tag IN (SELECT id FROM tags WHERE tag IN ({}))"
+                       "GROUP BY exercise "
+                       "HAVING count(*) = ?)".format(', '.join("?" * len(tags))))
+            args.extend(tags)
+            args.append(len(tags))
+        if description != "":
+            wheres.append('description LIKE "%{}%"'.format(description))
+        if len(wheres) > 0:
+            query += " WHERE " + " AND ".join(wheres)
+            result = conn.execute(query, args)
             ids = [ row[0] for row in result ]
             if len(ids) == 0:
                 return []

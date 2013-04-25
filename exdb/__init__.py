@@ -49,13 +49,11 @@ def addExercise(exercise, connection=None):
     repo.addExercise(exercise)
     repo.generatePreviews(exercise)
     
-def updateExercise(exercise, connection=None, user=None):
-    assert exercise.number is not None
-    assert exercise.creator is not None
+def updateExercise(exercise, connection=None, user=None, old=None):
     exercise.modified = datetime.datetime.now()
     sql.updateExercise(exercise, connection=connection)
     repo.updateExercise(exercise, user)
-    repo.generatePreviews(exercise)
+    repo.generatePreviews(exercise, old)
 
 def removeExercise(creator, number, connection=None, user=None):
     sql.removeExercise(creator, number, connection=connection)
