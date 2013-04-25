@@ -158,9 +158,16 @@ def searchExercises(tags=[], connection=None):
     with conditionalConnect(connection) as conn:
         if len(tags) == 0:
             return exercises(connection=conn)
-        result = conn.execute("SELECT exercise FROM ex_tags_rel WHERE tag IN (SELECT id FROM tags WHERE tag IN ({}))"
-                             .format(', '.join('"{}"'.format(tag) for tag in tags)));
+        result = conn.execute("SELECT exercise, count(*) "
+                                "FROM ex_tags_rel "
+                                "WHERE tag IN (SELECT id FROM tags WHERE tag IN ({}))"
+                                "GROUP BY exercise "
+                                "HAVING count(*) = ?"
+                             .format(', '.join("?" * len(tags))),
+                             tags + [len(tags)]);
         ids = [ row[0] for row in result ]
+        if len(ids) == 0:
+            return []
         return exercises(ids=ids, connection=conn)
 
 def exercise(creator, number, connection=None):
