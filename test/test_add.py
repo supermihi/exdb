@@ -5,6 +5,8 @@
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
 
+from __future__ import unicode_literals
+
 from os.path import join, exists
 import unittest
 
@@ -29,8 +31,8 @@ class TestAddExercise(unittest.TestCase):
             exercise = exdb.exercises()[0]
             self.assertEqual(exercise.creator, "helmling")
             self.assertEqual(exercise.number, 1)
-            self.assert_(exists(exdb.repo.exercisePath(exercise)))
-            self.assert_(exists(join(exdb.repo.exercisePath(exercise), 'exercise_DE.png')))
-            self.assert_(exists(join(exdb.repo.exercisePath(exercise), 'solution_DE.png')))
-            self.assert_(exists(join(exdb.repo.exercisePath(exercise), 'solution_EN.png')))
-            self.assert_(not exists(join(exdb.repo.exercisePath(exercise), 'exercise_EN.png')))
+            self.assertTrue(exists(exdb.repo.exercisePath(exercise)))
+            self.assertTrue(exists(join(exdb.repo.exercisePath(exercise), 'exercise_DE.png')))
+            self.assertTrue(exists(join(exdb.repo.exercisePath(exercise), 'solution_DE.png')))
+            self.assertTrue(exists(join(exdb.repo.exercisePath(exercise), 'solution_EN.png')))
+            self.assertTrue(not exists(join(exdb.repo.exercisePath(exercise), 'exercise_EN.png')))

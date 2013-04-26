@@ -5,6 +5,8 @@
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
 
+from __future__ import unicode_literals
+
 from lxml import etree
 from lxml.builder import E
 
@@ -67,13 +69,13 @@ class Exercise(dict):
         xml.set("{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation", "exercise.xsd")
         for line in self.tex_preamble:
             xml.append(E.tex_preamble(line))
-        for lang, text in self.tex_exercise.items():
+        for lang, text in sorted(self.tex_exercise.items()):
             xml.append(E.tex_exercise(text, lang=lang))
-        for lang, text in self.tex_solution.items():
+        for lang, text in sorted(self.tex_solution.items()):
             xml.append(E.tex_solution(text, lang=lang))
         for tag in self.tags:
             xml.append(E.tag(tag))                
-        return etree.tostring(xml, encoding="utf-8", xml_declaration=True, pretty_print=True)
+        return etree.tostring(xml, encoding="utf-8", xml_declaration=True, pretty_print=True).decode('utf-8')
         
     
     @staticmethod

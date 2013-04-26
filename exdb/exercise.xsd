@@ -18,10 +18,10 @@
     </xs:simpleContent>
 </xs:complexType>
 
-<!-- Type for tags: Tokens that don't contain a comma (which is used to separate tags -->
+<!-- Type for tags: Tokens that don't contain commas or quotes -->
 <xs:simpleType name="tagtype">
     <xs:restriction base="xs:token">
-        <xs:pattern value="[^,]+"/>
+        <xs:pattern value='[^,"]+'/>
     </xs:restriction>
 </xs:simpleType>
 
