@@ -29,16 +29,11 @@ def callHg(*args, **kwargs):
     return subprocess.check_output(["hg"] + list(args), **kwargs)
 
 
-def initRepository(overwrite=False):
+def initRepository():
     """Creates an initial hg repository at the given *path*.
-    
-    If *overwrite* is True and the path exists, it will be removed without warning.
     """
     path = repoPath()
-    if exists(path):
-        if overwrite:
-            shutil.rmtree(path)
-    else:
+    if not exists(path):
         os.makedirs(path)
     hgChanges = False
     if not exists(join(path, ".hg")):

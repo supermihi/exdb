@@ -11,36 +11,40 @@ from os.path import dirname, exists, join
 from .exercise import Exercise
 from contextlib import contextmanager
 
+
 def sqlPath():
+    """Return the absolute path of the sqlite database."""
     import exdb
     return join(exdb.instancePath, "database.sqlite")
 
-def connect(database=None):
-    if database is None:
-        database = sqlPath()
-    conn = sqlite3.connect(database)
+
+def connect():
+    """Connect to the database and return the connection object."""
+    conn = sqlite3.connect(sqlPath())
     conn.execute("PRAGMA foreign_keys = ON;")
     conn.row_factory = sqlite3.Row
     return conn
 
 @contextmanager
 def conditionalConnect(connection):
-    if connection:
-        conn = connection
-    else:
-        conn = connect()
+    """Context manager returning a SQLite connection.
+    
+    Yields *connection* if it is not None; otherwise, a new connection is established. In the 
+    latter case, the connection is closed after exiting the with statement.
+    """
+    conn = connection or connect()    
     yield conn
     if not connection:
         conn.close()
 
-def initDatabase(overwrite=False):
+
+def initDatabase():
     """Initialize the database.
     
-    Deletes all preexisting data if *overwrite* is True. Returns True if and only if the tables
-    have been newly created.    
+    Returns True if and only if the tables have been newly created.    
     """
     createTables = False
-    if overwrite or not exists(sqlPath()):
+    if not exists(sqlPath()):
         createTables = True
     else:
         with connect() as db:
@@ -54,8 +58,11 @@ def initDatabase(overwrite=False):
         db.close()
     return createTables
 
+
 def tags(conn):
+    """Return all tags in the database, sorted alphabetically."""
     return [row[0] for row in conn.execute("SELECT tag FROM tags ORDER BY tag ASC")]
+
 
 def updateTagsAndPreambles(exercise, exid, cursor):
     tagids = []

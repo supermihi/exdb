@@ -27,8 +27,8 @@ class TestAddExercise(unittest.TestCase):
     def test_addExercise(self):
         with testRepoEnv():
             exdb.addExercise(self.sampleExercise)
-            self.assertEqual(len(exdb.exercises()), 1)
-            exercise = exdb.exercises()[0]
+            self.assertEqual(len(exdb.sql.exercises()), 1)
+            exercise = exdb.sql.exercises()[0]
             self.assertEqual(exercise.creator, "helmling")
             self.assertEqual(exercise.number, 1)
             self.assertTrue(exists(exdb.repo.exercisePath(exercise)))

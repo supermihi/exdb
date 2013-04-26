@@ -27,7 +27,9 @@ CREATE TABLE ex_pre_rel (
 DROP TABLE IF EXISTS tags;
 CREATE TABLE tags (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    tag STRING NOT NULL
+    tag STRING NOT NULL,
+    category INTEGER,
+    FOREIGN KEY(category) REFERENCES categories(id)
 );
 
 DROP TABLE IF EXISTS ex_tags_rel;
@@ -37,4 +39,11 @@ CREATE TABLE ex_tags_rel (
     FOREIGN KEY(exercise) REFERENCES exercises(id) ON DELETE CASCADE,
     FOREIGN KEY(tag) REFERENCES tags(id) ON DELETE CASCADE
 );
-    
+
+DROP TABLE IF EXISTS categories;
+CREATE TABLE categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name STRING NOT NULL,
+    parent INTEGER,
+    FOREIGN KEY (parent) REFERENCES id
+);

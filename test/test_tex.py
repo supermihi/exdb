@@ -48,4 +48,3 @@ class TestCompilation(unittest.TestCase):
             image = makePreview(self.tex_de, preambles=self.preambles, compiler="pdflatex")
             import exdb.tex
             self.assertTrue(os.path.exists(image))
-            self.assertTrue(image.startswith(exdb.tex.previewPath()))
