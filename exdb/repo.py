@@ -5,8 +5,10 @@
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
 
+from __future__ import unicode_literals
+
 from os.path import dirname, join, exists, relpath
-import os
+import io, os
 import subprocess, shutil
 
 def repoPath():
@@ -58,7 +60,7 @@ def addExercise(exercise):
     assert not exists(basePath)
     os.mkdir(basePath)
     xmlPath = join(basePath, exercise.identifier() + ".xml")
-    with open(xmlPath, "wt") as f:
+    with io.open(xmlPath, "wt", encoding="utf-8") as f:
         f.write(exercise.toXML())
     commitMessage = "ADD {} {}".format(exercise.creator, exercise.number)
     callHg("add", relpath(xmlPath, repoPath()))
@@ -70,7 +72,7 @@ def updateExercise(exercise, user=None):
     basePath = exercisePath(exercise)
     assert exists(basePath)
     xmlPath = join(basePath, exercise.identifier() + ".xml")
-    with open(xmlPath, "wt") as f:
+    with io.open(xmlPath, "wt", encoding="utf-8") as f:
         f.write(exercise.toXML())
     commitMessage = "EDIT {} {}".format(exercise.creator, exercise.number)
     callHg("commit", "-u", user or exercise.creator, "-m", commitMessage)
@@ -81,7 +83,8 @@ def removeExercise(creator, number, user=None):
     callHg("remove", relpath(path, repoPath()))
     commitMessage = "REMOVE {} {}".format(creator, number)
     callHg("commit", "-u", user or creator, "-m", commitMessage)
-    shutil.rmtree(path)
+    if exists(path):
+        shutil.rmtree(path)
     pushIfRemote()
 
 def generatePreviews(exercise, old=None):

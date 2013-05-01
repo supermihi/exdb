@@ -64,7 +64,7 @@ and some additional files and folders. The layout is as follows:
          |         |-- foo1.xml
          |         |-- exercise_EN.png
          |         +-- solution_DE.png
-         |-- tags.xml
+         |-- tagCategories.xml
          +-- templates
               |-- preamble.tex
               +-- template.tex

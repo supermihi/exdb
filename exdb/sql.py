@@ -59,9 +59,10 @@ def initDatabase():
     return createTables
 
 
-def tags(conn):
+def tags(connection=None):
     """Return all tags in the database, sorted alphabetically."""
-    return [row[0] for row in conn.execute("SELECT tag FROM tags ORDER BY tag ASC")]
+    with conditionalConnect(connection) as conn:
+        return [row[0] for row in conn.execute("SELECT tag FROM tags ORDER BY tag ASC")]
 
 
 def updateTagsAndPreambles(exercise, exid, cursor):

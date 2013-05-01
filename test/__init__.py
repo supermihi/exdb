@@ -10,6 +10,9 @@ import tempfile
 import shutil
 from contextlib import contextmanager
 
+def dataPath(path):
+    return join(dirname(__file__), "data", path)
+
 @contextmanager
 def testRepoEnv():
     """Creates a temporary instance and calls exdb.init() on that instance's path.

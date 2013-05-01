@@ -7,6 +7,7 @@
 
 from os.path import dirname, exists, join, relpath
 from os import mkdir, makedirs, remove
+import sys
 import shutil
 import subprocess
 import datetime
@@ -25,8 +26,7 @@ def populateDatabase():
     from .exercise import Exercise
     conn = sql.connect()
     for xmlPath in glob.glob(join(repo.repoPath(), "exercises", "*", "*.xml")):
-        with open(xmlPath, "rt") as xmlFile:
-            xml = xmlFile.read()
+        xml = open(xmlPath, "rb").read()
         exercise = Exercise.fromXMLString(xml)
         sql.addExercise(exercise, connection=conn)
     conn.close()
@@ -53,6 +53,7 @@ def init(path):
         mkdir(previewPath)
     if sql.initDatabase():
         populateDatabase()
+    tags.initTree(sql.tags())
 
 
 def addExercise(exercise, connection=None):
@@ -89,4 +90,9 @@ def removeExercise(creator, number, connection=None, user=None):
     sql.removeExercise(creator, number, connection=connection)
     repo.removeExercise(creator, number, user)
 
-from . import repo, sql, tex
+def uni(string):
+    if sys.version_info.major >= 3 or type(string) is unicode:
+        return string
+    return string.decode('utf-8')
+
+from . import repo, sql, tags, tex

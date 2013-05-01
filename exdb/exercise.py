@@ -9,9 +9,10 @@ from __future__ import unicode_literals
 
 from lxml import etree
 from lxml.builder import E
-
+import sys
 import datetime
 from os.path import join, dirname
+from exdb import uni
 
 class VersionMismatchError(Exception):
     def __init__(self, ours, yours):
@@ -85,28 +86,38 @@ class Exercise(dict):
             Exercise.SCHEMAVERSION = int(xsd.getroot().get("version"))
             schema = etree.XMLSchema(xsd)
             Exercise.parser = etree.XMLParser(schema=schema)
+        return Exercise.parser
 
     @staticmethod
     def fromXMLString(data):
-        Exercise.initXSD()
-        parser = Exercise.parser
+        parser = Exercise.initXSD()
         root = etree.fromstring(data, parser)
+        return Exercise.fromXMLRoot(root)
+    
+    @staticmethod
+    def fromXMLFile(path):
+        parser = Exercise.initXSD()
+        root = etree.parse(path, parser=parser).getroot()
+        return Exercise.fromXMLRoot(root)
+    
+    @staticmethod
+    def fromXMLRoot(root):
         exercise = Exercise()
         exercise.schemaversion = int(root.get('schemaversion'))
         if exercise.schemaversion > Exercise.SCHEMAVERSION:
             raise VersionMismatchError(Exercise.SCHEMAVERSION, exercise.schemaversion)
-        exercise.creator = root.findtext('creator')
+        exercise.creator = uni(root.findtext('creator'))
         exercise.number = int(root.findtext('number'))
-        exercise.description = root.findtext('description')
+        exercise.description = uni(root.findtext('description'))
         exercise.modified = datetime.datetime.strptime(root.findtext('modified'), Exercise.DATEFMT)
         for elem in root.findall('tex_preamble'):
-            exercise.tex_preamble.append(elem.text)
+            exercise.tex_preamble.append(uni(elem.text))
         for extex in root.findall('tex_exercise'):
-            exercise.tex_exercise[extex.get('lang')] = extex.text
+            exercise.tex_exercise[uni(extex.get('lang'))] = uni(extex.text)
         for soltex in root.findall('tex_solution'):
-            exercise.tex_solution[soltex.get('lang')] = soltex.text
+            exercise.tex_solution[uni(soltex.get('lang'))] = uni(soltex.text)
         for tag in root.findall('tag'):
-            exercise.tags.append(tag.text)
+            exercise.tags.append(uni(tag.text))
         return exercise
     
     def __str__(self):

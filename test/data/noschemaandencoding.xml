@@ -1,0 +1,8 @@
+<?xml version='1.0'?>
+<exercise schemaversion="1">
+  <creator>jensmander</creator>
+  <number>1</number>
+  <description>Eine Aufgabe</description>
+  <modified>2013-04-05T10:10:00</modified>
+  <tex_exercise lang="DE">$x^2$</tex_exercise>
+</exercise>
