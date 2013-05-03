@@ -36,15 +36,8 @@ class TestCompilation(unittest.TestCase):
         self.runPreview(self.tex_en, compiler="xelatex", lang="EN")
         self.assertRaisesRegexp(CompilationError, r"Missing \$ inserted",
                                 lambda : self.runPreview(self.tex_invalid, compiler="xelatex"))
-        
-    def test_lualatex(self):
-        self.runPreview(self.tex_de, compiler="lualatex")
-        self.runPreview(self.tex_en, compiler="lualatex", lang="EN")
-        self.assertRaisesRegexp(CompilationError, r"Missing \$ inserted",
-                                lambda : self.runPreview(self.tex_invalid, compiler="lualatex"))
     
     def test_previewPath(self):
         with testRepoEnv():
             image = makePreview(self.tex_de, preambles=self.preambles, compiler="pdflatex")
-            import exdb.tex
             self.assertTrue(os.path.exists(image))

@@ -111,11 +111,10 @@ def history(maxEntries=10):
     ans = callHg("log", "--template", "{author}\t{date|isodate}\t{desc}\n", "-l", str(maxEntries))
     entries = []
     for line in ans.splitlines(False):
-        print(line)
         author, date, description = line.split("\t")
         try:
             action, creator, number = description.split(" ")
-            entries.append(dict(author=author, date=date, action=action, creator=creator, number=number))
+            entries.append({"author": author, "date": date, "action": action, "creator": creator, "number": number})
         except ValueError:
-            entries.append(dict(author=author, date=date, description=description))
+            entries.append({"author": author, "date": date, "description": description})
     return entries

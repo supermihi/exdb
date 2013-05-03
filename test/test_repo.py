@@ -48,6 +48,9 @@ class TestRepository(unittest.TestCase):
         self.assertEqual(len(exdb.sql.exercises()), 1)
         theEx = exdb.sql.exercises()[0]
         self.assertEqual(theEx.creator, "jemand")
-    
+        history = exdb.repo.history()
+        self.assertEqual(history[0]["author"], "jensmander")
+        self.assertEqual(history[0]["action"], "REMOVE")
+        self.assertEqual(history[1]["action"], "ADD")
             
         
