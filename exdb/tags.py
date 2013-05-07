@@ -38,9 +38,52 @@ def initTree(tags=None):
     for tag in tags:
         if tag not in existingTags:
             uncat.append(E.tag(tag))
-    print(etree.tostring(tree, pretty_print=True))
     assert  tree.find("category[@name='uncategorized']") is not None 
     return tree
 
-def addTag(tag, category='uncategorized'):
-    pass
+
+def addTag(tag, category=('uncategorized',), position=-1):
+    assert len(category) >= 1
+    node = findCategory(category)
+    assert len(node.xpath("./tag[text()='{}']".format(tag))) == 0
+    if position == -1:
+        node.append(E.tag(tag))
+    else:
+        node.insert(position, E.tag(tag))
+
+
+def findTag(tag, category=('uncategorized',)):
+    cat = findCategory(category)
+    tag = cat.xpath("./tag[text()='{}']".format(tag))[0]
+    return tag
+
+
+def removeTag(tag, category=('uncategorized',)):
+    findCategory(category).remove(findTag(tag, category))
+
+
+def addCategory(name, parent=(), position=-1):
+    node = findCategory(parent)
+    if position == -1:
+        node.append(E.category(name=name))
+    else:
+        node.insert(position, E.category(name=name))
+
+
+def findCategory(category=('uncategorized')):
+    if len(category):
+        return tree.find("/".join("category[@name='{}']".format(cat) for cat in category))
+    else:
+        return tree
+
+
+def removeCategory(category):
+    assert category != ('uncategorized',)
+    parent = findCategory(category[:-1])
+    parent.remove(parent.find("category[@name='{}']".format(category[-1])))
+    
+
+
+def tags(category=('uncategorized',)):
+    node = tree.find("/".join("category[@name='{}']".format(cat) for cat in category))
+    return node.xpath("//text()")
