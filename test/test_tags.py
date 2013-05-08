@@ -8,6 +8,7 @@
 from nose.tools import assert_equal, assert_is_not_none, assert_true, assert_raises
 
 from lxml import etree
+
 def testTagTree():
     
     import exdb.tags as t

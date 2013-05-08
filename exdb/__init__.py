@@ -13,6 +13,7 @@ import subprocess
 import datetime
 import logging
 
+logger = logging.getLogger("exdb")
 
 instancePath = None
     
@@ -25,7 +26,8 @@ def populateDatabase():
     import glob
     from .exercise import Exercise
     conn = sql.connect()
-    for xmlPath in glob.glob(join(repo.repoPath(), "exercises", "*", "*.xml")):
+    for xmlPath in sorted(glob.glob(join(repo.repoPath(), "exercises", "*", "*.xml"))):
+        logger.info("reading exercise {}".format(xmlPath))
         xml = open(xmlPath, "rb").read()
         exercise = Exercise.fromXMLString(xml)
         sql.addExercise(exercise, connection=conn)
@@ -35,7 +37,7 @@ def populateDatabase():
 def init(path):
     """Initialize the exdb package with instance directory *path*.
     
-    This function intelligently creates the parts of the instance directory which do not yet exist:
+    This function intelligently creates those parts of the instance directory that don't yet exist:
     - the repository is initalized (if necessary) and populated with the initial directory
       structure. Tex templates are added and commited.
     - the preview path is created

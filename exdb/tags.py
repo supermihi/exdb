@@ -18,12 +18,13 @@ def initTree(tags=None):
     global tree
     import exdb
     from exdb import uni
+    from exdb.repo import repoPath
     
     if tags is None:
         tags = []
     initialized = True
     if exdb.instancePath is not None:
-        tagFile = join(exdb.instancePath, "tagCategories.xml")
+        tagFile = join(repoPath(), "tagCategories.xml")
     else:
         initialized = False
     if initialized and exists(tagFile):
@@ -42,6 +43,11 @@ def initTree(tags=None):
     return tree
 
 
+def storeTree():
+    from exdb.repo import repoPath
+    with open(join(repoPath(), "tagCategories.xml"), "wt") as f:
+        f.write(etree.tostring(tree, pretty_print=True, xml_declaration=True))
+            
 def addTag(tag, category=('uncategorized',), position=-1):
     assert len(category) >= 1
     node = findCategory(category)
