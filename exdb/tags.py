@@ -5,45 +5,59 @@
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
 
-from __future__ import unicode_literals
+from __future__ import unicode_literals, print_function
 
 from os.path import exists, join
 
 from lxml import etree
 from lxml.builder import E
 
-tree = None
-
-def initTree(tags=None):
-    global tree
+def initTagsTable(conn):
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM tags;")
     import exdb
-    from exdb import uni
     from exdb.repo import repoPath
     
-    if tags is None:
-        tags = []
-    initialized = True
+    initialized = False
     if exdb.instancePath is not None:
         tagFile = join(repoPath(), "tagCategories.xml")
-    else:
-        initialized = False
+        initialized = True
     if initialized and exists(tagFile):
-        tree = etree.parse(tagFile, encoding="utf-8").getroot()
+        tree = etree.parse(tagFile).getroot()
     else:
-        tree = E.categories()
+        tree = initialTree()
     uncat = tree.find("category[@name='uncategorized']") 
     if uncat is None:
         uncat = E.category(name='uncategorized')
         tree.append(uncat)
-    existingTags = set(uni(elem.text) for elem in tree.findall('tag'))
-    for tag in tags:
-        if tag not in existingTags:
-            uncat.append(E.tag(tag))
-    assert  tree.find("category[@name='uncategorized']") is not None 
+        
+    for node in tree.iterdescendants():
+        parents = list(reversed([el.get("id") for el in node.iterancestors()][:-1]))
+        matpath = '.'.join(map(str, parents)) + '.'
+        cursor.execute("INSERT INTO tags(name, type, parent, mat_path) VALUES (?, ?, ?, ?)",
+                     (node.get("name"), node.tag, parents[-1] if len(parents) else None, matpath))
+        
+        node.set("id", str(cursor.lastrowid))
+    print(etree.tostring(tree, pretty_print=True))
+    conn.commit()
     return tree
 
+def initialTree():
+    return E.categories( E.category(name='uncategorized') )
 
-def storeTree():
+def readTreeFromTable(conn):
+    root = E.categories()
+    for row in conn.execute("SELECT id, name, type, mat_path FROM tags ORDER BY id ASC"):
+        parents = row[3][:-1].split(".")
+        if len(parents) > 0 and len(parents[0]) > 0:
+            parent = root.xpath("/".join("category[@id='{}']".format(cat) for cat in parents))
+        else:
+            parent = root
+        element = etree.Element(row[2], id=str(row[0]), name=row[1])
+        parent.append(element)
+    return root
+
+def storeTree(tree):
     from exdb.repo import repoPath
     with open(join(repoPath(), "tagCategories.xml"), "wt") as f:
         f.write(etree.tostring(tree, pretty_print=True, xml_declaration=True))

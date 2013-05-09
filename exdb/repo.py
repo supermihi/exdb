@@ -50,6 +50,11 @@ def initRepository():
             shutil.copy(join(myDir, texfile), templatePath())
             callHg("add", join("templates", texfile))
             hgChanges = True
+    tagCatFile = join(path, "tagCategories.xml")
+    if not exists(tagCatFile):
+        from . import tags
+        tags.storeTree(tags.initialTree())
+        callHg("add", tagCatFile)
     if hgChanges:
         callHg("commit", "-u", "system", "-m", "Initial setup")
 

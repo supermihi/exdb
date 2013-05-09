@@ -26,6 +26,7 @@ def populateDatabase():
     import glob
     from .exercise import Exercise
     conn = sql.connect()
+    tags.initTagsTable(conn)
     for xmlPath in sorted(glob.glob(join(repo.repoPath(), "exercises", "*", "*.xml"))):
         logger.info("reading exercise {}".format(xmlPath))
         xml = open(xmlPath, "rb").read()
@@ -55,7 +56,7 @@ def init(path):
         mkdir(previewPath)
     if sql.initDatabase():
         populateDatabase()
-    tags.initTree(sql.tags())
+    logger.setLevel(logging.DEBUG)
 
 
 def addExercise(exercise, connection=None):
@@ -64,7 +65,10 @@ def addExercise(exercise, connection=None):
     Uses the SQLite connection object *connection* if supplied.
     If the exercise does not yet have a number, it will be set by this method.
     """
+    if not connection:
+        connection = sql.connect()
     sql.addExercise(exercise, connection=connection)
+    tags.storeTree(tags.readTreeFromTable(connection)) 
     repo.addExercise(exercise)
     repo.generatePreviews(exercise)
 
