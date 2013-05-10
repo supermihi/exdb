@@ -8,6 +8,8 @@
 from __future__ import unicode_literals, print_function
 
 from os.path import exists, join
+import json
+from collections import OrderedDict
 
 from lxml import etree
 from lxml.builder import E
@@ -57,6 +59,19 @@ def readTreeFromTable(conn):
         parent.append(element)
     return root
 
+class JSONTreeEncoder(json.JSONEncoder):
+    
+    def default(self, obj):
+        if isinstance(obj, etree._Element):
+            if obj.tag == "elements":
+                return obj.getchildren()
+            dct = OrderedDict(title=obj.get("name"), key=obj.get("id"))
+            if obj.tag == "category":
+                dct["isFolder"] = True
+                dct["children"] = obj.getchildren()
+        return json.JSONEncoder.default(self, obj)
+
+            
 def storeTree(tree):
     from exdb.repo import repoPath
     with open(join(repoPath(), "tagCategories.xml"), "wt") as f:
