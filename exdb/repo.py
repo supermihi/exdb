@@ -71,14 +71,17 @@ def addExercise(exercise):
     callHg("add", relpath(xmlPath, repoPath()))
     callHg("commit", "-u", exercise.creator, "-m", commitMessage)
     pushIfRemote()
-        
-def updateExercise(exercise, user=None):
-    """Updates the given exercise"""
+    
+    
+def storeExerciseXML(exercise):
     basePath = exercisePath(exercise)
-    assert exists(basePath)
     xmlPath = join(basePath, exercise.identifier() + ".xml")
     with io.open(xmlPath, "wt", encoding="utf-8") as f:
         f.write(exercise.toXML())
+        
+def updateExercise(exercise, user=None):
+    """Updates the given exercise"""
+    storeExerciseXML(exercise)    
     commitMessage = "EDIT {} {}".format(exercise.creator, exercise.number)
     callHg("commit", "-u", user or exercise.creator, "-m", commitMessage)
     pushIfRemote()
@@ -91,6 +94,12 @@ def removeExercise(creator, number, user=None):
     if exists(path):
         shutil.rmtree(path)
     pushIfRemote()
+
+
+def updateTagTree(renames, user):
+    callHg("commit", "-u", user, "-m", "TAGS")
+    pushIfRemote()
+
 
 def generatePreviews(exercise, old=None):
     from . import tex
@@ -117,9 +126,19 @@ def history(maxEntries=10):
     entries = []
     for line in ans.splitlines(False):
         author, date, description = line.split("\t")
+        descriptionParts = description.split(" ")
+        action = descriptionParts[0]
+        entry = {"author": author, "date": date}
         try:
-            action, creator, number = description.split(" ")
-            entries.append({"author": author, "date": date, "action": action, "creator": creator, "number": number})
+            if action in ("ADD", "REMOVE", "EDIT"):
+                print(descriptionParts)
+                creator, number = descriptionParts[1:]
+                entry.update({"action": action, "creator": creator, "number": number})
+            elif action == "TAGS":
+                entry.update({"action": action})
+            else:
+                entry.update({"description": description})
         except ValueError:
-            entries.append({"author": author, "date": date, "description": description})
+            entry.update({"description": description})
+        entries.append(entry)
     return entries

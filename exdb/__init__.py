@@ -65,10 +65,9 @@ def addExercise(exercise, connection=None):
     Uses the SQLite connection object *connection* if supplied.
     If the exercise does not yet have a number, it will be set by this method.
     """
-    if not connection:
-        connection = sql.connect()
-    sql.addExercise(exercise, connection=connection)
-    tags.storeTree(tags.readTreeFromTable(connection)) 
+    with sql.conditionalConnect(connection) as conn:
+        sql.addExercise(exercise, connection=conn)
+        tags.storeTree(tags.readTreeFromTable(conn)) 
     repo.addExercise(exercise)
     repo.generatePreviews(exercise)
 
@@ -83,7 +82,9 @@ def updateExercise(exercise, connection=None, user=None, old=None):
     TeX code in the new and old exercise coincides, no new image is compiled.
     """
     exercise.modified = datetime.datetime.now()
-    sql.updateExercise(exercise, connection=connection)
+    with sql.conditionalConnect(connection) as conn:    
+        sql.updateExercise(exercise, connection=conn)
+        tags.storeTree(tags.readTreeFromTable(conn))
     repo.updateExercise(exercise, user)
     repo.generatePreviews(exercise, old)
 
@@ -93,9 +94,40 @@ def removeExercise(creator, number, connection=None, user=None):
     
     If *user* is given, it is used as hg commit author; otherwise that is set to *creator*. 
     """
-    sql.removeExercise(creator, number, connection=connection)
+    with sql.conditionalConnect(connection) as conn:
+        sql.removeExercise(creator, number, connection=conn)
+        tags.storeTree(tags.readTreeFromTable(conn))
     repo.removeExercise(creator, number, user)
 
+
+def updateTagTree(old, new, user, connection=None):
+    if tags.compareTrees(old, new):
+        return False
+    oldTags = {}
+    renames = {}
+    for node in old.iter("tag"):
+        oldTags[int(node.get("id"))] = node.get("name")
+    for node in new.iter("tag"):
+        id = int(node.get("id"))
+        if oldTags[id] != node.get("name"):
+            renames[oldTags[id]] =  node.get("name")
+    with sql.conditionalConnect(connection) as conn:
+        if len(renames):
+            exercises = sql.exercises(connection=conn)
+            for exercise in exercises:
+                changed = False
+                for i in range(len(exercise.tags)):
+                    if exercise.tags[i] in renames:
+                        changed = True
+                        exercise.tags[i] = renames[exercise.tags[i]]
+                if changed:
+                    sql.updateExercise(exercise, connection=conn)
+                    repo.storeExerciseXML(exercise)
+        tags.storeTree(new)
+        tags.initTagsTable(conn)
+    repo.updateTagTree(renames, user)
+    return True
+        
 def uni(string):
     if sys.version_info.major >= 3 or type(string) is unicode:
         return string

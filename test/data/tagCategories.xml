@@ -1,0 +1,9 @@
+<categories>
+	<category name="uncategorized">
+		<tag name="an uncategorized tag"></tag>
+		<tag name="another uncategorized tag"></tag></category>
+	<category name="some category">
+		<category name="subcategory of some category">
+			<tag name="a tag in the subcategory"></tag>
+		</category>
+		<tag name="a tag in the category but not the subcategory"></tag></category></categories>

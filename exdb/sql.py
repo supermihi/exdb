@@ -65,15 +65,16 @@ def initDatabase():
 def addMissingTags(exid, cursor):
     result = cursor.execute("SELECT tag FROM exercises_tags "
                                 "WHERE exercise = ? "
-                                "AND tag NOT IN (SELECT name FROM tags WHERE type='tag')", (exid,))
+                                "AND tag NOT IN (SELECT name FROM tags WHERE is_tag=1)", (exid,))
     newTags = [row[0] for row in result]
     if len(newTags):
         uncatId = cursor.execute("SELECT id FROM tags "
-                                 "WHERE type='category' "
+                                 "WHERE is_tag=0 "
                                  "AND parent ISNULL "
-                                 "AND mat_path='.' ").fetchone()[0]
-        cursor.executemany("INSERT INTO tags(name, type, parent, mat_path) "
-                           "VALUES(?, 'tag', ?, ?)", product(newTags, [uncatId], ["{}.".format(uncatId)]))
+                                 "AND mat_path='.' "
+                                 "AND name='uncategorized'").fetchone()[0]
+        cursor.executemany("INSERT INTO tags(name, is_tag, parent, mat_path) "
+                           "VALUES(?, 1, ?, ?)", product(newTags, [uncatId], [".{}.".format(uncatId)]))
     
 def addExercise(exercise, connection=None):
     with conditionalConnect(connection) as conn:
@@ -109,9 +110,10 @@ def updateExercise(exercise, connection=None):
                         json.dumps(exercise.tex_exercise), json.dumps(exercise.tex_solution),
                         exercise.creator, exercise.number])
         cursor.execute("DELETE FROM exercises_tags WHERE exercise=?", (id,))
-        cursor.execute("INSERT INTO exercises_tags(exercise,tag) VALUES(?,?)",
+        cursor.executemany("INSERT INTO exercises_tags(exercise,tag) VALUES(?,?)",
                        [ (id, tag) for tag in exercise.tags])
-        cursor.execute("DELETE FROM tags WHERE type='tag' AND name NOT IN  (SELECT tag FROM exercises_tags);")
+        cursor.execute("DELETE FROM tags WHERE is_tag=1 AND name NOT IN  (SELECT tag FROM exercises_tags);")
+        addMissingTags(id, cursor)
         conn.commit()
 
 
@@ -119,7 +121,7 @@ def removeExercise(creator, number, connection=None):
     with conditionalConnect(connection) as conn:
         cursor = conn.cursor()
         cursor.execute('DELETE FROM exercises WHERE creator=? AND number=?', (creator, number))
-        cursor.execute("DELETE FROM tags WHERE type='tag' AND name NOT IN (SELECT tag FROM exercises_tags);")
+        cursor.execute("DELETE FROM tags WHERE is_tag=1 AND name NOT IN (SELECT tag FROM exercises_tags);")
         conn.commit()
 
 
@@ -156,23 +158,27 @@ def exercises(ids=None, connection=None):
             exercises.append(exercise)
     return exercises
 
-def searchExercises(tags=[], langs=[], description="", connection=None):
+def searchExercises(tags=[], cats=[], langs=[], description="", connection=None):
     with conditionalConnect(connection) as conn:
         args = []
-        wheres = []
-        query = "SELECT id FROM exercises"
-        if len(tags) > 0:
-            wheres.append("id IN (SELECT DISTINCT exercise "
-                       "FROM exercises_tags "
-                       "WHERE tag IN ({}))"
-                       .format(', '.join("?" * len(tags))))
-            args.extend(tags)
+        selects = []
+        if len(tags):
+            selects.append("SELECT exercise FROM exercises_tags\n" \
+                           "    WHERE {}\n" \
+                           "    GROUP BY exercise" \
+                           "    HAVING COUNT(*) = ?".format(" OR ".join(["tag=?"]*len(tags))))
+            args.extend(tags + [len(tags)])
+        for id, mat_path in cats:
+            selects.append("SELECT exercise FROM exercises_tags WHERE tag IN\n"
+                           "    (SELECT name FROM tags WHERE is_tag AND mat_path LIKE '{}{}.%') GROUP BY exercise"
+                           .format(mat_path, id))
         if description != "":
-            wheres.append('description LIKE "%{}%"'.format(description))
-        if len(wheres) > 0:
-            query += " WHERE " + " AND ".join(wheres)
-            result = conn.execute(query, args)
-            ids = [ row[0] for row in result ]
+            selects.append('SELECT id FROM exercises WHERE description LIKE "%{}%"'.format(description))
+        if len(selects):
+            print(" UNION ".join(selects))
+            print(args)
+            ids = [row[0] for row in conn.execute(" UNION ".join(selects), args)]
+            print(ids)
             if len(ids) == 0:
                 return []
         else:

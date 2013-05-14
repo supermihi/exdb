@@ -21,7 +21,7 @@ DROP TABLE IF EXISTS tags;
 CREATE TABLE tags (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    type TEXT,
+    is_tag BOOLEAN,
     parent INTEGER,
     mat_path TEXT,
     FOREIGN KEY(parent) REFERENCES tags(id)
