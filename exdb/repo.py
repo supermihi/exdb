@@ -107,14 +107,16 @@ def generatePreviews(exercise, old=None):
     for type in "exercise", "solution":
         dct = exercise["tex_{}".format(type)]
         for lang, texcode in dct.items():
-            if old is not None and old["tex_{}".format(type)][lang] == dct[lang]:
-                print('no update for {} {}'.format(type, lang))
-                continue
+            if old is not None:
+                olddct = old["tex_{}".format(type)]
+                if lang in olddct and olddct[lang] == dct[lang]:
+                    continue
             targetPath = join(exercisePath(exercise), "{}_{}.png".format(type, lang))
             if not exists(targetPath) or datetime.fromtimestamp(os.path.getmtime(targetPath)) < exercise.modified:
                 image = tex.makePreview(texcode, lang, exercise.tex_preamble)
                 shutil.copy(image, targetPath)
                 shutil.rmtree(dirname(image))
+
 
 def pushIfRemote():
     ans = callHg("showconfig", "paths.default")

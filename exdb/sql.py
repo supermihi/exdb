@@ -26,6 +26,11 @@ def connect():
     """Connect to the database and return the connection object."""
     conn = sqlite3.connect(sqlPath())
     conn.execute("PRAGMA foreign_keys = ON;")
+    import re
+    def regexp(expr, item):
+        reg = re.compile(expr, flags=re.MULTILINE)
+        return reg.search(item) is not None
+    conn.create_function("REGEXP", 2, regexp)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -85,8 +90,8 @@ def addExercise(exercise, connection=None):
         cursor.execute("INSERT INTO exercises(creator, number, description, modified, "
                      "tex_exercise, tex_solution) VALUES(?, ?, ?, ?, ?, ?)",
                      [exercise.creator, exercise.number, exercise.description, exercise.modified.strftime(exercise.DATEFMT),
-                      json.dumps(exercise.tex_exercise, ensure_ascii=False),
-                      json.dumps(exercise.tex_solution, ensure_ascii=False)])
+                      json.dumps(exercise.tex_exercise, ensure_ascii=False, indent=2),
+                      json.dumps(exercise.tex_solution, ensure_ascii=False, indent=2)])
         exid = cursor.lastrowid
         cursor.executemany("INSERT INTO exercises_preambles(exercise, preamble) VALUES(?,?)",
                            [ (exid,preamble) for preamble in exercise.tex_preamble])
@@ -107,7 +112,8 @@ def updateExercise(exercise, connection=None):
         cursor.execute("UPDATE exercises SET description=?, modified=?, tex_exercise=?, tex_solution=? "
                        "WHERE creator=? AND number=?",
                        [exercise.description, exercise.modified.strftime(exercise.DATEFMT),
-                        json.dumps(exercise.tex_exercise), json.dumps(exercise.tex_solution),
+                        json.dumps(exercise.tex_exercise, ensure_ascii=False, indent=2),
+                        json.dumps(exercise.tex_solution, ensure_ascii=False, indent=2),
                         exercise.creator, exercise.number])
         cursor.execute("DELETE FROM exercises_tags WHERE exercise=?", (id,))
         cursor.executemany("INSERT INTO exercises_tags(exercise,tag) VALUES(?,?)",
@@ -125,11 +131,12 @@ def removeExercise(creator, number, connection=None):
         conn.commit()
 
 
-def exercises(ids=None, connection=None):
+def exercises(ids=None, sortColumn="modified", sortDirection="desc", connection=None):
+    """Return the list of exercises with the given *ids*."""
     with conditionalConnect(connection) as conn:
-        def readTable(name, whereClause="", multi=False):
+        def readTable(name, where="", order="", multi=False):
             dct = OrderedDict()
-            for row in conn.execute("SELECT * FROM {} {}".format(name, whereClause)):
+            for row in conn.execute("SELECT * FROM {} {} {}".format(name, where, order)):
                 if multi:
                     if row[0] in dct:
                         dct[row[0]].append(row[1])
@@ -139,10 +146,11 @@ def exercises(ids=None, connection=None):
                     dct[row[0]] = row
             return dct
         if ids:
-            dbExercises = readTable("exercises", whereClause="WHERE id IN ({})".
-                                    format(", ".join(str(id) for id in ids)))
+            whereClause = "WHERE id IN ({})".format(", ".join(str(id) for id in ids))
         else:
-            dbExercises = readTable("exercises")
+            whereClause = ""
+        orderClause="ORDER BY {} {}".format(sortColumn, sortDirection)
+        dbExercises = readTable("exercises", whereClause, orderClause)
         exercises = []
         dbTags = readTable("exercises_tags", multi=True)
         dbPreambles = readTable("exercises_preambles", multi=True)
@@ -158,7 +166,8 @@ def exercises(ids=None, connection=None):
             exercises.append(exercise)
     return exercises
 
-def searchExercises(tags=[], cats=[], langs=[], description="", connection=None):
+def searchExercises(tags=[], cats=[], langs=[], description="", sortColumn="modified", sortDirection="asc",
+                    connection=None):
     with conditionalConnect(connection) as conn:
         args = []
         selects = []
@@ -172,20 +181,24 @@ def searchExercises(tags=[], cats=[], langs=[], description="", connection=None)
             selects.append("SELECT exercise FROM exercises_tags WHERE tag IN\n"
                            "    (SELECT name FROM tags WHERE is_tag AND mat_path LIKE '{}{}.%') GROUP BY exercise"
                            .format(mat_path, id))
-        if description != "":
-            selects.append('SELECT id FROM exercises WHERE description LIKE "%{}%"'.format(description))
+        if description != "" or len(langs):
+            exwheres = []
+            if description != "":
+                args.append('%{}%'.format(description.replace('\\','\\\\').replace('_','\\_').replace('%','\\%')))
+                exwheres.append('description LIKE ? ESCAPE "\\"')
+            for lang in langs:
+                exwheres.append("tex_exercise REGEXP '^  \"{}\": \"'".format(lang))
+            selects.append('SELECT id FROM exercises WHERE {}'.format(" AND ".join(exwheres)))
         if len(selects):
-            print(" UNION ".join(selects))
+            query = " UNION ".join(selects)
+            print(query)
             print(args)
-            ids = [row[0] for row in conn.execute(" UNION ".join(selects), args)]
-            print(ids)
+            ids = [row[0] for row in conn.execute(query, args)]
             if len(ids) == 0:
                 return []
         else:
             ids = None
-        exes = exercises(ids=ids, connection=conn)
-        if len(langs) > 0:
-            exes = [e for e in exes if all(lang in e.tex_exercise for lang in langs)]
+        exes = exercises(ids=ids, sortColumn=sortColumn, sortDirection=sortDirection, connection=conn)
         return exes
 
 def exercise(creator, number, connection=None):
