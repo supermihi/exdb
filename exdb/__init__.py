@@ -101,21 +101,32 @@ def removeExercise(creator, number, connection=None, user=None):
 
 
 def updateTagTree(old, new, user, connection=None):
+    """Store any changes in the tag tree (restructuring, renaming or deleting tags, ...).
+    """
     if tags.compareTrees(old, new):
         return False
     oldTags = {}
     renames = {}
+    deletes = set()
+    newTagsIds = set([int(node.get("id")) for node in new.iter("tag")])
     for node in old.iter("tag"):
-        oldTags[int(node.get("id"))] = node.get("name")
+        id = int(node.get("id"))
+        oldTags[id] = node.get("name")
+        if id not in newTagsIds:
+            deletes.add(node.get("name"))
     for node in new.iter("tag"):
         id = int(node.get("id"))
         if oldTags[id] != node.get("name"):
             renames[oldTags[id]] =  node.get("name")
     with sql.conditionalConnect(connection) as conn:
-        if len(renames):
+        if len(renames) + len(deletes):
             exercises = sql.exercises(connection=conn)
             for exercise in exercises:
                 changed = False
+                tagsFiltered = [t for t in exercise.tags if t not in deletes]
+                if len(tagsFiltered) != len(exercise.tags):
+                    exercise.tags = tagsFiltered
+                    changed = True
                 for i in range(len(exercise.tags)):
                     if exercise.tags[i] in renames:
                         changed = True
