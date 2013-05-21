@@ -7,23 +7,32 @@
 
 from __future__ import unicode_literals
 
-from lxml import etree
-from lxml.builder import E
 import datetime
 from os.path import join, dirname
+
+from lxml import etree
+from lxml.builder import E
+
 from exdb import uni
 
+
 class VersionMismatchError(Exception):
+    """Error raised when trying to read an Exercise with a too recent schema version."""
     def __init__(self, ours, yours):
-        Exception.__init__(self, "Schema version {} is too recent (expected <= {})".format(yours, ours))
+        Exception.__init__(self, "Schema version {} is too recent (expected <= {})"
+                           .format(yours, ours))
+
 
 class Exercise(dict):
+    """Class for exercises."""
     
     DATEFMT = "%Y-%m-%dT%H:%M:%S"
     parser = None
+    attributes = ["number", "creator", "description", "modified", "tex_preamble",
+                  "tex_exercise", "tex_solution", "tags"]
     
-    attributes = ["number", "creator", "description", "modified", "tex_preamble", "tex_exercise", "tex_solution", "tags"]
     def __init__(self, **kwargs):
+        """Initialize the exercise. Attributes can be passed as keyword arguments."""
         self.tex_exercise = {}
         self.tex_solution = {}
         self.tex_preamble = []
@@ -54,6 +63,7 @@ class Exercise(dict):
         return "{}{}".format(self.creator, self.number)                
                 
     def toXML(self):
+        """Return a string containing the XML-encoded exercise."""
         Exercise.initXSD()
         xml = (
             E.exercise(
@@ -74,7 +84,6 @@ class Exercise(dict):
         for tag in self.tags:
             xml.append(E.tag(tag))                
         return etree.tostring(xml, encoding="utf-8", xml_declaration=True, pretty_print=True).decode('utf-8')
-        
     
     @staticmethod
     def initXSD():
