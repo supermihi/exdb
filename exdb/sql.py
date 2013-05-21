@@ -5,8 +5,7 @@
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
 
-import sqlite3
-import json
+import json, sqlite3
 import re
 from os.path import dirname, exists, join
 from itertools import product
@@ -36,15 +35,17 @@ def dumpTexDict(code):
 sqlite3.register_adapter(dict, dumpTexDict)
 sqlite3.register_adapter(datetime, lambda date: date.strftime(Exercise.DATEFMT))
 
+
 def parseTexDict(dump):
     return json.loads(dump)
 
 sqlite3.register_converter("TEXDICT", parseTexDict)
-sqlite3.register_converter("DATETIME", lambda s: datetime.strptime(s, format=Exercise.DATEFMT))
+sqlite3.register_converter("DATETIME", lambda s: datetime.strptime(s, Exercise.DATEFMT))
+
 
 def connect():
     """Connect to the database and return the connection object."""
-    conn = sqlite3.connect(sqlPath())
+    conn = sqlite3.connect(sqlPath(), detect_types=sqlite3.PARSE_DECLTYPES)
     conn.execute("PRAGMA foreign_keys = ON;")
     conn.create_function("REGEXP", 2, regexp)
     conn.row_factory = sqlite3.Row
@@ -66,35 +67,31 @@ def conditionalConnect(connection):
 
 def initDatabase():
     """Initialize the database. Returns whether or not the tables have been newly created."""
-    createTables = False
-    if not exists(sqlPath()):
-        createTables = True
-    else:
+    if exists(sqlPath()):
         with connect() as db:
-            ans = set(row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table';"))
-            if "exercises" not in ans:
-                createTables = True
-    if createTables:    
-        with connect() as db:
-            with open(join(dirname(__file__), 'dbschema.sql'), "rt") as schema:
-                db.cursor().executescript(schema.read())
-        db.close()
-    return createTables
+            if db.execute("SELECT count(*) FROM sqlite_master "
+                          "WHERE type='table' AND name='exercises'").fetchone()[0]:
+                return False
+    with connect() as db:
+        with open(join(dirname(__file__), 'dbschema.sql'), "rt") as schema:
+            db.cursor().executescript(schema.read())
+    db.close()
+    return True
 
 
 def addMissingTags(exid, cursor):
-    """Adds missing tags in exercise with id *exid* to the database (under 'uncategorized')."""
+    """Adds missing tags in exercise with id *exid* to the database (under 'uncategorized').
+    """
     result = cursor.execute("SELECT tag FROM exercises_tags WHERE exercise = ? AND tag NOT IN "
                             "(SELECT name FROM tags WHERE is_tag)", (exid,))
     newTags = [row[0] for row in result]
     if len(newTags):
         uncatId = cursor.execute("SELECT id FROM tags "
-                                 "WHERE is_tag=0 "
-                                 "AND mat_path='.' "
-                                 "AND name='uncategorized'").fetchone()[0]
+                                 "WHERE NOT is_tag AND mat_path='.' AND name='uncategorized'"
+                                 ).fetchone()[0]
         cursor.executemany("INSERT INTO tags(name, is_tag, mat_path) "
-                           "VALUES(?, 1, ?)", product(newTags, [".{}.".format(uncatId)]))
-   
+                           "VALUES (?,1,?)", product(newTags, [".{}.".format(uncatId)]))
+
 
 def addExercise(exercise, connection=None):
     """Adds the given exercise to the database."""
@@ -105,7 +102,7 @@ def addExercise(exercise, connection=None):
             exercise.number = 1 if maxnr is None else maxnr + 1
         cursor = conn.cursor()
         cursor.execute("INSERT INTO exercises(creator, number, description, modified, "
-                     "tex_exercise, tex_solution) VALUES (?, ?, ?, ?, ?, ?)",
+                     "tex_exercise, tex_solution) VALUES (?,?,?,?,?,?)",
                      [exercise.creator, exercise.number, exercise.description,
                       exercise.modified, exercise.tex_exercise, exercise.tex_solution])
         exid = cursor.lastrowid
@@ -116,6 +113,10 @@ def addExercise(exercise, connection=None):
         addMissingTags(exid, cursor)
         conn.commit()
 
+
+def removeUnreferencedTags(curs):
+    """Removes from the tags table all tags that are not referenced in any exercise.""" 
+    curs.execute("DELETE FROM tags WHERE is_tag AND name NOT IN (SELECT tag FROM exercises_tags)")
 
 def updateExercise(exercise, connection=None):
     """Update the database with modified *exercise*."""
@@ -134,20 +135,21 @@ def updateExercise(exercise, connection=None):
         cursor.execute("DELETE FROM exercises_tags WHERE exercise=?", (id,))
         cursor.executemany("INSERT INTO exercises_tags(exercise,tag) VALUES(?,?)",
                        [ (id, tag) for tag in exercise.tags])
-        cursor.execute("DELETE FROM tags WHERE is_tag AND name NOT IN  (SELECT tag FROM exercises_tags);")
+        removeUnreferencedTags(cursor)
         addMissingTags(id, cursor)
         conn.commit()
 
 
 def removeExercise(creator, number, connection=None):
+    """Remove the exercise with the given creator and number."""
     with conditionalConnect(connection) as conn:
         cursor = conn.cursor()
         cursor.execute('DELETE FROM exercises WHERE creator=? AND number=?', (creator, number))
-        cursor.execute("DELETE FROM tags WHERE is_tag AND name NOT IN (SELECT tag FROM exercises_tags);")
+        removeUnreferencedTags(cursor)
         conn.commit()
 
 
-def exercises(ids=None, sortColumn="modified", sortDirection="desc", connection=None):
+def exercises(ids=None, pagination=None, connection=None):
     """Return the list of exercises with the given *ids*."""
     with conditionalConnect(connection) as conn:
         def readTable(name, where="", order="", multi=False):
@@ -162,14 +164,22 @@ def exercises(ids=None, sortColumn="modified", sortDirection="desc", connection=
                     dct[row[0]] = row
             return dct
         if ids:
-            whereClause = "WHERE id IN ({})".format(", ".join(str(id) for id in ids))
+            idList = ", ".join(str(id) for id in ids)
+            whereClause = "WHERE id IN ({})".format(idList)
+            whereClause2 = "WHERE exercise IN ({})".format(idList)
         else:
-            whereClause = ""
-        orderClause="ORDER BY {} {}".format(sortColumn, sortDirection)
+            whereClause = whereClause2 = ""
+        if pagination is None:
+            pagination = {}
+        orderby = pagination.get("orderby", "modified")
+        dir = "DESC" if pagination.get("descending") else "ASC"
+        limit = pagination.get("limit", -1)
+        offset = pagination.get("offset", 0)
+        orderClause="ORDER BY {} {} LIMIT {} OFFSET {}".format(orderby, dir, limit, offset)
         dbExercises = readTable("exercises", whereClause, orderClause)
         exercises = []
-        dbTags = readTable("exercises_tags", multi=True)
-        dbPreambles = readTable("exercises_preambles", multi=True)
+        dbTags = readTable("exercises_tags", whereClause2, multi=True)
+        dbPreambles = readTable("exercises_preambles", whereClause2, multi=True)
         for id, row in dbExercises.items():
             exercise = Exercise(creator=row["creator"], number=row["number"],
                                 modified=row["modified"], description=row["description"],
@@ -181,40 +191,41 @@ def exercises(ids=None, sortColumn="modified", sortDirection="desc", connection=
             exercises.append(exercise)
     return exercises
 
-def searchExercises(tags=[], cats=[], langs=[], description="", sortColumn="modified", sortDirection="asc",
-                    connection=None):
+
+def searchExercises(connection=None, **kwargs):
     with conditionalConnect(connection) as conn:
         args = []
         selects = []
-        if len(tags):
+        if kwargs.get("tags", []):
+            tags = kwargs["tags"]
             selects.append("SELECT exercise FROM exercises_tags\n" \
                            "    WHERE {}\n" \
                            "    GROUP BY exercise" \
                            "    HAVING COUNT(*) = ?".format(" OR ".join(["tag=?"]*len(tags))))
             args.extend(tags + [len(tags)])
-        for id, mat_path in cats:
-            selects.append("SELECT exercise FROM exercises_tags WHERE tag IN\n"
-                           "    (SELECT name FROM tags WHERE is_tag AND mat_path LIKE '{}{}.%') GROUP BY exercise"
-                           .format(mat_path, id))
-        if description != "" or len(langs):
+        for id, mat_path in kwargs.get("cats", {}):
+            selects.append("SELECT exercise FROM exercises_tags WHERE tag IN"
+                           "  (SELECT name FROM tags WHERE is_tag AND mat_path LIKE '{}{}.%')"
+                           "  GROUP BY exercise".format(mat_path, id))
+        if kwargs.get("description", "") != "" or len(kwargs.get("langs", [])):
             exwheres = []
-            if description != "":
-                args.append('%{}%'.format(description.replace('\\','\\\\').replace('_','\\_').replace('%','\\%')))
+            if kwargs.get("description", "") != "":
+                args.append('%{}%'.format(kwargs["description"]
+                            .replace('\\','\\\\').replace('_','\\_').replace('%','\\%')))
                 exwheres.append('description LIKE ? ESCAPE "\\"')
-            for lang in langs:
+            for lang in kwargs.get("langs", []):
                 exwheres.append("tex_exercise REGEXP '^  \"{}\": \"'".format(lang))
             selects.append('SELECT id FROM exercises WHERE {}'.format(" AND ".join(exwheres)))
         if len(selects):
             query = " UNION ".join(selects)
-            print(query)
-            print(args)
-            ids = [row[0] for row in conn.execute(query, args)]
-            if len(ids) == 0:
-                return []
+            ids = [ row[0] for row in conn.execute(query, args) ]
+            count = len(ids)
+            if not count:
+                return 0, []
         else:
             ids = None
-        exes = exercises(ids=ids, sortColumn=sortColumn, sortDirection=sortDirection, connection=conn)
-        return exes
+            count = conn.execute("SELECT COUNT(*) FROM exercises").fetchone()[0]
+        return count, exercises(ids=ids, pagination=kwargs.get("pagination", {}), connection=conn)
 
 
 def exercise(creator, number, connection=None):
@@ -230,4 +241,3 @@ def exercise(creator, number, connection=None):
                             description=ex["description"], tex_exercise=ex["tex_exercise"],
                             tex_solution=ex["tex_solution"], tags=tags, tex_preamble=preambles)
     return exercise
-    

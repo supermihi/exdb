@@ -65,15 +65,13 @@ class Exercise(dict):
     def toXML(self):
         """Return a string containing the XML-encoded exercise."""
         Exercise.initXSD()
-        xml = (
-            E.exercise(
+        xml = E.exercise(
                 E.creator(self.creator),
                 E.number(str(self.number)),
                 E.description(self.description),
                 E.modified(self.modified.strftime(self.DATEFMT)),
                 schemaversion=str(Exercise.SCHEMAVERSION)
-            )
-        )
+              )
         xml.set("{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation", "exercise.xsd")
         for line in self.tex_preamble:
             xml.append(E.tex_preamble(line))
@@ -127,6 +125,8 @@ class Exercise(dict):
         return exercise
     
     def __str__(self):
-        return "Exercise(" + ", ".join("{}={}".format(attr,getattr(self, attr)) for attr in self.attributes) + ")"
+        return ("Exercise(" + 
+                ", ".join("{}={}".format(attr,getattr(self, attr)) for attr in self.attributes) + 
+                ")")
     
     __repr__ = __str__
