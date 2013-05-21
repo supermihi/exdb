@@ -7,32 +7,47 @@
 
 from __future__ import unicode_literals
 
+import io, os, subprocess, shutil
 from os.path import dirname, join, exists, relpath
-import io, os
-import subprocess, shutil
+from datetime import datetime
+
 
 def repoPath():
+    """The absolute path of the hg repository."""
     import exdb
     return join(exdb.instancePath, "repo")
 
+
 def remoteUrl():
+    """The remote URL of the repository, if configured."""
     return callHg("showconfig", "paths.default")
 
+
 def templatePath():
+    """The absolute path of the LaTeX template directory."""
     return join(repoPath(), "templates")
 
+
 def exercisePath(exercise):
-    """Return the directory inside the repository where *exercise* is (or should be) located."""
+    """Directory inside the repository where *exercise* is (or should be) located."""
     return join(repoPath(), 'exercises', exercise.identifier())
 
+
 def callHg(*args, **kwargs):
+    """Calls the hg script in the repo directory with given args.
+    
+    Any keyword arguments are passed to the subprocess.check_output function call.
+    """
     if "cwd" not in kwargs:
         kwargs["cwd"] = repoPath()
     return subprocess.check_output(["hg"] + list(args), **kwargs)
 
 
 def initRepository():
-    """Creates an initial hg repository at the given *path*.
+    """Ensure that an initial exercise repository exists.
+    
+    Calls "hg init" if necessary, adds missing templates, creates a bare tagCategories.xml, and
+    commits any changes.    
     """
     path = repoPath()
     if not exists(path):
@@ -57,12 +72,12 @@ def initRepository():
         callHg("add", tagCatFile)
     if hgChanges:
         callHg("commit", "-u", "system", "-m", "Initial setup")
+        pushIfRemote()
 
 
 def addExercise(exercise):
     """Adds the given exercise to the repository."""
     basePath = exercisePath(exercise)
-    assert not exists(basePath)
     os.mkdir(basePath)
     xmlPath = join(basePath, exercise.identifier() + ".xml")
     with io.open(xmlPath, "wt", encoding="utf-8") as f:
@@ -74,19 +89,23 @@ def addExercise(exercise):
     
     
 def storeExerciseXML(exercise):
+    """Write the XML file encoding the given exercise to the appropriate path."""
     basePath = exercisePath(exercise)
     xmlPath = join(basePath, exercise.identifier() + ".xml")
     with io.open(xmlPath, "wt", encoding="utf-8") as f:
         f.write(exercise.toXML())
-        
+
+
 def updateExercise(exercise, user=None):
-    """Updates the given exercise"""
+    """Updates the given exercise: writes XML file and commits the repository."""
     storeExerciseXML(exercise)    
     commitMessage = "EDIT {} {}".format(exercise.creator, exercise.number)
     callHg("commit", "-u", user or exercise.creator, "-m", commitMessage)
     pushIfRemote()
-        
+
+
 def removeExercise(creator, number, user=None):
+    """Remove an exercise by deleting its path from the repository."""
     path = join(repoPath(), "exercises", "{}{}".format(creator, number))
     callHg("remove", relpath(path, repoPath()))
     commitMessage = "REMOVE {} {}".format(creator, number)
@@ -102,8 +121,13 @@ def updateTagTree(renames, user):
 
 
 def generatePreviews(exercise, old=None):
+    """Generate preview images for the given *exercise*.
+    
+    This creates files of the form foo1/solution_EN.png for all existing tex snippets.
+    *old* may be a previous exercise object; in that case, previews are generated only for those
+    snippets which have changed compared to *old*.
+    """
     from . import tex
-    from datetime import datetime
     for type in "exercise", "solution":
         dct = exercise["tex_{}".format(type)]
         for lang, texcode in dct.items():
@@ -119,10 +143,12 @@ def generatePreviews(exercise, old=None):
 
 
 def pushIfRemote():
+    """Push the repository if a remote address is configured."""
     ans = callHg("showconfig", "paths.default")
     if len(ans) > 3:
         callHg("push")
-        
+
+
 def history(maxEntries=10):
     ans = callHg("log", "--template", "{author}\t{date|isodate}\t{desc}\n", "-l", str(maxEntries))
     entries = []

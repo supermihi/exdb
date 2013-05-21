@@ -9,7 +9,6 @@ from __future__ import unicode_literals
 
 from lxml import etree
 from lxml.builder import E
-import sys
 import datetime
 from os.path import join, dirname
 from exdb import uni
@@ -37,8 +36,6 @@ class Exercise(dict):
                 setattr(self, key, value)
             else:
                 raise ValueError("Unknown keyword arg '{}' for Exercise".format(key))
-        if not isinstance(self.modified, datetime.datetime):
-            self.modified = datetime.datetime.strptime(self.modified, self.DATEFMT)
     
     def __setattr__(self, attr, value):
         if attr in self.attributes:

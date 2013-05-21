@@ -40,19 +40,24 @@ def initTagsTable(conn):
         matpath = '.'.join(map(str, parents)) + '.'
         if matpath[0] != '.':
             matpath = "." + matpath
-        cursor.execute("INSERT INTO tags(name, is_tag, parent, mat_path) VALUES (?, ?, ?, ?)",
-                     (node.get("name"), node.tag == "tag",
-                      parents[-1] if len(parents) else None, matpath))
+        cursor.execute("INSERT INTO tags(name, is_tag, mat_path) VALUES (?, ?, ?)",
+                     (node.get("name"), node.tag == "tag", matpath))
         node.set("id", str(cursor.lastrowid))
         node.set("matpath", matpath)
     conn.commit()
     return tree
 
+
 def initialTree():
+    """Returns the root of an initial tag tree containing only the 'uncategorized' category.""" 
     return E.categories(E.category(name='uncategorized'))
 
+
 def readTreeFromTable(conn):
-    """Parse the *tags* SQLite table into an LXML tree and return its root."""
+    """Parse the *tags* SQLite table into an XML tree and return its root.
+    
+    The nodes will contain *id* and *mat_path* attributes as used in the DB table.
+    """
     root = E.categories()
     for row in conn.execute("SELECT id, name, is_tag, mat_path FROM tags ORDER BY id ASC"):
         parents = row[3][1:-1].split(".")
@@ -60,12 +65,17 @@ def readTreeFromTable(conn):
             parent = root.xpath("/".join("category[@id='{}']".format(cat) for cat in parents))[0]
         else:
             parent = root
-        element = etree.Element("tag" if row[2] else "category", id=str(row[0]), name=row[1],
+        element = etree.Element("tag" if row[2] else "category",
+                                id=str(row[0]),
+                                name=row[1],
                                 mat_path=row[3])
         parent.append(element)
     return root
 
+
 def compareTrees(tree1, tree2):
+    """Return if tag trees *tree1* and *tree2* are equal.
+    """
     for pre, post in izip_longest(tree1.iter(), tree2.iter(), fillvalue=None):
         if pre is None or post is None:
             return False
@@ -76,6 +86,7 @@ def compareTrees(tree1, tree2):
         if len(pre) != len(post):
             return False
     return True
+
 
 class JSONTreeEncoder(json.JSONEncoder):
     """A specialized JSON encoder to encode the tag XML tree into JSON suitable for dynatree.
@@ -89,11 +100,12 @@ class JSONTreeEncoder(json.JSONEncoder):
         if isinstance(obj, etree._Element):
             if obj.tag == "categories":
                 return obj.getchildren()
-            dct = OrderedDict(title=obj.get("name"), id=obj.get("id"), is_tag=obj.tag=="tag",
+            dct = OrderedDict(title=obj.get("name"),
+                              id=obj.get("id"),
+                              is_tag=(obj.tag=="tag"),
                               mat_path=obj.get("mat_path"))
             if obj.tag == "category":
                 dct["isFolder"] = True
-                dct["expand"] = True
                 dct["children"] = obj.getchildren()
                 if obj.get("mat_path") == "." and obj.get("name") == "uncategorized":
                     dct["locked"] = True
@@ -140,4 +152,4 @@ def storeTree(tree):
         except KeyError:
             pass
     with open(join(repoPath(), "tagCategories.xml"), "wt") as f:
-        f.write(etree.tostring(tree, pretty_print=True, xml_declaration=True))
+        f.write(etree.tostring(tree, pretty_print=True, xml_declaration=True, encoding="utf-8"))

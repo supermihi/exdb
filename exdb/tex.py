@@ -7,12 +7,9 @@
 
 from __future__ import unicode_literals
 
+import io, os, shutil, subprocess, tempfile
 from os.path import join, dirname
-import os, shutil
 import hashlib
-import tempfile
-import io
-import subprocess
 
 
 class CompilationError(Exception):

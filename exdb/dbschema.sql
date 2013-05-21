@@ -1,13 +1,12 @@
 DROP TABLE IF EXISTS exercises;
-
 CREATE TABLE exercises (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     creator TEXT NOT NULL,
     number INTEGER NOT NULL,
     description TEXT,
-    modified datetime NOT NULL,
-    tex_exercise TEXT,
-    tex_solution TEXT
+    modified DATETIME NOT NULL,
+    tex_exercise TEXDICT,
+    tex_solution TEXDICT
 );
 
 DROP TABLE IF EXISTS exercises_preambles;
@@ -22,9 +21,7 @@ CREATE TABLE tags (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     is_tag BOOLEAN,
-    parent INTEGER,
-    mat_path TEXT,
-    FOREIGN KEY(parent) REFERENCES tags(id)
+    mat_path TEXT
 );
 
 DROP TABLE IF EXISTS exercises_tags;

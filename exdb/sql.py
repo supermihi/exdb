@@ -7,13 +7,14 @@
 
 import sqlite3
 import json
+import re
 from os.path import dirname, exists, join
 from itertools import product
 from collections import OrderedDict
 from contextlib import contextmanager
+from datetime import datetime
 
 from .exercise import Exercise
-
 
 
 def sqlPath():
@@ -22,17 +23,33 @@ def sqlPath():
     return join(exdb.instancePath, "database.sqlite")
 
 
+def regexp(expr, item):
+    """The REGEXP function callback for SQLite."""
+    reg = re.compile(expr, flags=re.MULTILINE)
+    return reg.search(item) is not None
+
+
+def dumpTexDict(code):
+    """Dump given lang-to-texcode dictionary (exercise or solution) to a JSON string."""
+    return json.dumps(code, ensure_ascii=False, sort_keys=True, indent=2)
+
+sqlite3.register_adapter(dict, dumpTexDict)
+sqlite3.register_adapter(datetime, lambda date: date.strftime(Exercise.DATEFMT))
+
+def parseTexDict(dump):
+    return json.loads(dump)
+
+sqlite3.register_converter("TEXDICT", parseTexDict)
+sqlite3.register_converter("DATETIME", lambda s: datetime.strptime(s, format=Exercise.DATEFMT))
+
 def connect():
     """Connect to the database and return the connection object."""
     conn = sqlite3.connect(sqlPath())
     conn.execute("PRAGMA foreign_keys = ON;")
-    import re
-    def regexp(expr, item):
-        reg = re.compile(expr, flags=re.MULTILINE)
-        return reg.search(item) is not None
     conn.create_function("REGEXP", 2, regexp)
     conn.row_factory = sqlite3.Row
     return conn
+
 
 @contextmanager
 def conditionalConnect(connection):
@@ -48,10 +65,7 @@ def conditionalConnect(connection):
 
 
 def initDatabase():
-    """Initialize the database.
-    
-    Returns True if and only if the tables have been newly created.    
-    """
+    """Initialize the database. Returns whether or not the tables have been newly created."""
     createTables = False
     if not exists(sqlPath()):
         createTables = True
@@ -67,41 +81,44 @@ def initDatabase():
         db.close()
     return createTables
 
+
 def addMissingTags(exid, cursor):
-    result = cursor.execute("SELECT tag FROM exercises_tags "
-                                "WHERE exercise = ? "
-                                "AND tag NOT IN (SELECT name FROM tags WHERE is_tag=1)", (exid,))
+    """Adds missing tags in exercise with id *exid* to the database (under 'uncategorized')."""
+    result = cursor.execute("SELECT tag FROM exercises_tags WHERE exercise = ? AND tag NOT IN "
+                            "(SELECT name FROM tags WHERE is_tag)", (exid,))
     newTags = [row[0] for row in result]
     if len(newTags):
         uncatId = cursor.execute("SELECT id FROM tags "
                                  "WHERE is_tag=0 "
-                                 "AND parent ISNULL "
                                  "AND mat_path='.' "
                                  "AND name='uncategorized'").fetchone()[0]
-        cursor.executemany("INSERT INTO tags(name, is_tag, parent, mat_path) "
-                           "VALUES(?, 1, ?, ?)", product(newTags, [uncatId], [".{}.".format(uncatId)]))
-    
+        cursor.executemany("INSERT INTO tags(name, is_tag, mat_path) "
+                           "VALUES(?, 1, ?)", product(newTags, [".{}.".format(uncatId)]))
+   
+
 def addExercise(exercise, connection=None):
+    """Adds the given exercise to the database."""
     with conditionalConnect(connection) as conn:
         if exercise.number is None:
-            maxnr = conn.execute("SELECT MAX(number) FROM exercises WHERE creator=?", (exercise.creator,)).fetchone()[0]
+            maxnr = conn.execute("SELECT MAX(number) FROM exercises WHERE creator=?",
+                                 (exercise.creator,)).fetchone()[0]
             exercise.number = 1 if maxnr is None else maxnr + 1
         cursor = conn.cursor()
         cursor.execute("INSERT INTO exercises(creator, number, description, modified, "
-                     "tex_exercise, tex_solution) VALUES(?, ?, ?, ?, ?, ?)",
-                     [exercise.creator, exercise.number, exercise.description, exercise.modified.strftime(exercise.DATEFMT),
-                      json.dumps(exercise.tex_exercise, ensure_ascii=False, indent=2),
-                      json.dumps(exercise.tex_solution, ensure_ascii=False, indent=2)])
+                     "tex_exercise, tex_solution) VALUES (?, ?, ?, ?, ?, ?)",
+                     [exercise.creator, exercise.number, exercise.description,
+                      exercise.modified, exercise.tex_exercise, exercise.tex_solution])
         exid = cursor.lastrowid
-        cursor.executemany("INSERT INTO exercises_preambles(exercise, preamble) VALUES(?,?)",
-                           [ (exid,preamble) for preamble in exercise.tex_preamble])
-        cursor.executemany("INSERT INTO exercises_tags(exercise,tag) VALUES(?,?)",
+        cursor.executemany("INSERT INTO exercises_preambles(exercise, preamble) VALUES (?,?)",
+                           [ (exid,preamble) for preamble in exercise.tex_preamble ])
+        cursor.executemany("INSERT INTO exercises_tags(exercise,tag) VALUES (?,?)",
                            [ (exid,tag) for tag in exercise.tags ])
         addMissingTags(exid, cursor)
         conn.commit()
 
 
 def updateExercise(exercise, connection=None):
+    """Update the database with modified *exercise*."""
     with conditionalConnect(connection) as conn:
         cursor = conn.cursor()
         id = cursor.execute("SELECT id FROM exercises WHERE creator=? AND number=?",
@@ -109,16 +126,15 @@ def updateExercise(exercise, connection=None):
         cursor.execute("DELETE FROM exercises_preambles WHERE exercise=?", (id,))
         cursor.executemany("INSERT INTO exercises_preambles(exercise, preamble) VALUES(?,?)",
                            [ (id,preamble) for preamble in exercise.tex_preamble])
-        cursor.execute("UPDATE exercises SET description=?, modified=?, tex_exercise=?, tex_solution=? "
+        cursor.execute("UPDATE exercises "
+                       "SET description=?, modified=?, tex_exercise=?, tex_solution=? "
                        "WHERE creator=? AND number=?",
-                       [exercise.description, exercise.modified.strftime(exercise.DATEFMT),
-                        json.dumps(exercise.tex_exercise, ensure_ascii=False, indent=2),
-                        json.dumps(exercise.tex_solution, ensure_ascii=False, indent=2),
-                        exercise.creator, exercise.number])
+                       [exercise.description, exercise.modified, exercise.tex_exercise,
+                        exercise.tex_solution, exercise.creator, exercise.number])
         cursor.execute("DELETE FROM exercises_tags WHERE exercise=?", (id,))
         cursor.executemany("INSERT INTO exercises_tags(exercise,tag) VALUES(?,?)",
                        [ (id, tag) for tag in exercise.tags])
-        cursor.execute("DELETE FROM tags WHERE is_tag=1 AND name NOT IN  (SELECT tag FROM exercises_tags);")
+        cursor.execute("DELETE FROM tags WHERE is_tag AND name NOT IN  (SELECT tag FROM exercises_tags);")
         addMissingTags(id, cursor)
         conn.commit()
 
@@ -127,7 +143,7 @@ def removeExercise(creator, number, connection=None):
     with conditionalConnect(connection) as conn:
         cursor = conn.cursor()
         cursor.execute('DELETE FROM exercises WHERE creator=? AND number=?', (creator, number))
-        cursor.execute("DELETE FROM tags WHERE is_tag=1 AND name NOT IN (SELECT tag FROM exercises_tags);")
+        cursor.execute("DELETE FROM tags WHERE is_tag AND name NOT IN (SELECT tag FROM exercises_tags);")
         conn.commit()
 
 
@@ -157,8 +173,7 @@ def exercises(ids=None, sortColumn="modified", sortDirection="desc", connection=
         for id, row in dbExercises.items():
             exercise = Exercise(creator=row["creator"], number=row["number"],
                                 modified=row["modified"], description=row["description"],
-                                tex_exercise=json.loads(row["tex_exercise"]),
-                                tex_solution=json.loads(row["tex_solution"]))
+                                tex_exercise=row["tex_exercise"], tex_solution=row["tex_solution"])
             if id in dbTags:
                 exercise.tags = dbTags[id]
             if id in dbPreambles:
@@ -201,17 +216,18 @@ def searchExercises(tags=[], cats=[], langs=[], description="", sortColumn="modi
         exes = exercises(ids=ids, sortColumn=sortColumn, sortDirection=sortDirection, connection=conn)
         return exes
 
+
 def exercise(creator, number, connection=None):
+    """Return the exercise with given *creator* and *number*."""
     with conditionalConnect(connection) as conn:
-        ex = conn.execute("SELECT * FROM exercises WHERE creator=? AND number=?", (creator, number)).fetchone()
+        ex = conn.execute("SELECT * FROM exercises WHERE creator=? AND number=?",
+                          (creator, number)).fetchone()
         tags = [row[0] for row in conn.execute("SELECT tag FROM exercises_tags "
                                                "WHERE exercise=?", (ex["id"],))]
         preambles = [row[0] for row in conn.execute("SELECT preamble FROM exercises_preambles "
                                                     "WHERE exercise=?", (ex["id"],))]
         exercise = Exercise(creator=ex["creator"], number=ex["number"], modified=ex["modified"],
-                            description=ex["description"],
-                            tex_exercise=json.loads(ex["tex_exercise"]),
-                            tex_solution=json.loads(ex["tex_solution"]),
-                            tags=tags, tex_preamble=preambles)
+                            description=ex["description"], tex_exercise=ex["tex_exercise"],
+                            tex_solution=ex["tex_solution"], tags=tags, tex_preamble=preambles)
     return exercise
     

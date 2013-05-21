@@ -16,7 +16,8 @@ import logging
 logger = logging.getLogger("exdb")
 
 instancePath = None
-    
+
+
 def populateDatabase():
     """Populate the SQLite database with exercises from the XML files in the repository.
     
@@ -138,10 +139,13 @@ def updateTagTree(old, new, user, connection=None):
         tags.initTagsTable(conn)
     repo.updateTagTree(renames, user)
     return True
-        
+
+
 def uni(string):
+    """Ensure given string is unicode; works for python2 and python3."""
     if sys.version_info.major >= 3 or type(string) is unicode:
         return string
     return string.decode('utf-8')
+
 
 from . import repo, sql, tags, tex
