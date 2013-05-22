@@ -28,6 +28,14 @@ def regexp(expr, item):
     return reg.search(item) is not None
 
 
+def icontains(base, search):
+    """Performs a case-insensitive search of *search* string in the *base* string.
+    
+    *search* is first split by whitespaces. Then the function returns True iff every piece is 
+    contained (ignoring case) in *base*."""
+    return all(bit.lower() in base.lower() for bit in search.split())
+
+
 def dumpTexDict(code):
     """Dump given lang-to-texcode dictionary (exercise or solution) to a JSON string."""
     return json.dumps(code, ensure_ascii=False, sort_keys=True, indent=2)
@@ -48,6 +56,7 @@ def connect():
     conn = sqlite3.connect(sqlPath(), detect_types=sqlite3.PARSE_DECLTYPES)
     conn.execute("PRAGMA foreign_keys = ON;")
     conn.create_function("REGEXP", 2, regexp)
+    conn.create_function("CONTAINS", 2, icontains)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -210,10 +219,8 @@ def searchExercises(connection=None, **kwargs):
         if kwargs.get("description", "") != "" or len(kwargs.get("langs", [])):
             exwheres = []
             if kwargs.get("description", "") != "":
-                escaped = (kwargs["description"]
-                           .replace('\\', '\\\\').replace('_', '\\_').replace('%', '\\%'))
-                args.append(u'%{}%'.format(escaped))
-                exwheres.append('description LIKE ? ESCAPE "\\"')
+                args.append(kwargs["description"])
+                exwheres.append('CONTAINS(description, ?)')
             for lang in kwargs.get("langs", []):
                 exwheres.append("tex_exercise REGEXP '^  \"{}\": \"'".format(lang))
             selects.append('SELECT id FROM exercises WHERE {}'.format(" AND ".join(exwheres)))
