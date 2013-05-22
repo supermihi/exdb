@@ -210,8 +210,9 @@ def searchExercises(connection=None, **kwargs):
         if kwargs.get("description", "") != "" or len(kwargs.get("langs", [])):
             exwheres = []
             if kwargs.get("description", "") != "":
-                args.append('%{}%'.format(kwargs["description"]
-                            .replace('\\','\\\\').replace('_','\\_').replace('%','\\%')))
+                escaped = (kwargs["description"]
+                           .replace('\\', '\\\\').replace('_', '\\_').replace('%', '\\%'))
+                args.append(u'%{}%'.format(escaped))
                 exwheres.append('description LIKE ? ESCAPE "\\"')
             for lang in kwargs.get("langs", []):
                 exwheres.append("tex_exercise REGEXP '^  \"{}\": \"'".format(lang))

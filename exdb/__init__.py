@@ -17,17 +17,17 @@ logger = logging.getLogger("exdb")
 
 instancePath = None
 
-def version():
+def version(packageName="exdb", packageDir=dirname(__file__)):
     """Returns the version of this git managed software package.
 
     If this __init__ file is located inside a git repository, then the output of a call to
     "git describe --dirty" is returned. Otherwise, the version is found through pkg_resources.
     """
-    dir = normpath(join(dirname(__file__), '..'))
+    dir = normpath(join(packageDir, '..'))
     if exists(join(dir, '.git')):
         return subprocess.check_output(['git', 'describe', '--dirty'], cwd=dir).decode().strip()
     import pkg_resources        
-    return pkg_resources.get_distribution("exdb").version
+    return pkg_resources.get_distribution(packageName).version
 
 
 def populateDatabase():
