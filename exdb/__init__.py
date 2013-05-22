@@ -5,7 +5,7 @@
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
 
-from os.path import dirname, exists, join, relpath
+from os.path import dirname, exists, join, normpath, relpath
 from os import mkdir, makedirs, remove
 import sys
 import shutil
@@ -16,6 +16,25 @@ import logging
 logger = logging.getLogger("exdb")
 
 instancePath = None
+
+def version():
+    """Returns the version of this git managed software package.
+
+    If this __init__ file is located inside a git repository (identified b a ».git« folder in the
+    grand-parent folder), then the output of git describe --dirty is returned. Otherwise, the
+    value of the above variable *released_version* is returned.
+
+    If the former case applies, *ask_dirty* is True and and the repository contains uncommited
+    changes, the user is asked if he wants to continue.
+    """
+    dir = normpath(join(dirname(__file__), '..'))
+    if exists(join(dir, '.git')):
+        # the package lies inside a git repository -> call "git describe"
+        p = subprocess.Popen(['git', 'describe', '--dirty'], cwd=dir, stdout=subprocess.PIPE)
+        out = p.communicate()[0]
+        return out.decode().strip()
+    import pkg_resources        
+    return pkg_resources.get_distribution("exdb").version
 
 
 def populateDatabase():
