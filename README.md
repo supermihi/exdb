@@ -3,7 +3,7 @@ exdb – A Python package for managing a database of LaTeX'ed exercises
 
 Overview
 --------
-`exdb` is a Python package for managing a database of LaTeX'ed exercises (and possibly
+[exdb][1] is a Python package for managing a database of LaTeX'ed exercises (and possibly
 solutions) as used for exams or tutoral exercise sheets in universities. The goal was to
 create a lightweight, robust, yet flexible package that does not require too much maintainance,
 suitable for a small university working group.
@@ -16,7 +16,7 @@ Besides the repository, this package maintains a SQLite database that contains t
 information, but can be searched more efficiently. The database is not part of the repository and
 can be rebuilt at any time from the XML files.
 
-Being designed for exercises typeset with LaTeX, ``exdb`` also features methods to compile
+Being designed for exercises typeset with LaTeX, [exdb][1] also features methods to compile
 exercises and generate preview images. To that end, the repository also contains template files
 that define an overall TeX preamble used for all compilations, and may contain e.g. common
 abbreviations or math operators.
@@ -39,14 +39,18 @@ The fields are:
 6. *tex_exercise*: A dictionary mapping two-letter uppercase language code (currently, only "DE"
     and "EN" are supported) to the corresponding LaTeX code.
 7. *tex_solution*: The same as tex_exercise, but for solutions. May be left out.
-8. *tags*: A list of short strings used for categorizing the exercise
+8. *tags*: A list of short strings used for categorizing the exercise. Any characters except comma
+   and double quote are allowed.
+
 
 Tag organization
 ----------------
-Tags are organized in tag categories: each tag has an attached category. Categories may themselves
-be assigned a category in order to create a layered tree structure. Note that categories are not
-tags themselves: an exercise filed under "network optimization" should not be tagged with 
-"optimization" additionally, if the tag "network optimization" belongs to category "optimization".
+Tags are organized in tag categories: each tag belongs to at least one category. Categories can be
+nested, leadinng to a layered tree structure. Note that categories are not tags themselves.
+The category tree is stored in XML format inside the repository (as `tagCategories.xml`). It is a
+simple XML file with the root element named `categories`, then child nodes with tag `category`
+or `tag`, respectively, which have their name in a `name` attribute.
+
 
 Instance Directory Layout
 -------------------------
@@ -73,8 +77,35 @@ As you can see, the repository is located in the `repo` directory. Preview image
 exercises are stored alongside the XML files in `repo/exercises/<identifier>`, but NOT added
 to the repository. The `previews` folder is used for temporary tex compilations.
 
+
 Requirements
 ------------
-- tested with Python versions 2.7 and 3.3
-- python-lxml bindings 
+- [Python](http://python.org) version 2.7 (with some very small changes it should also run
+  under Python 3)
+- [python-lxml](http://lxml.de) bindings 
 
+
+Installation
+------------
+Simply download or check out from the [project page][1] and use directly from that directory or
+install with `setup.py`, running
+
+    python2 setup.py install
+    
+in the project directory.
+
+
+Usage / Deployment
+------------------
+Before using any of `exdb`'s functionality, you must call `exdb.init(path)`, where `path` is the
+instance directory. It will be created if it does not exist, leading to the basic layout as
+described above.
+
+If you have an existing repository, you should create the instance directory before calling
+`exdb.init()` and checkout the repository to the `repo` subdirectory inside the instance path.
+
+Note that `exdb`does **not** track changes to the repository made without using the `exdb`
+interface. If you manually modify the repository (e.g. by pulling a new upstream version) you
+therefore have to delete the `database.sql`file so that it gets properly rebuilt.   
+
+[1]: http://github.com/supermihi/exdb

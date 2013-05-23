@@ -8,14 +8,38 @@
 from os.path import dirname, exists, join, normpath, relpath
 from os import mkdir, makedirs, remove
 import sys
-import shutil
-import subprocess
+import shutil, subprocess
 import datetime
 import logging
 
 logger = logging.getLogger("exdb")
 
 instancePath = None
+
+
+def init(path):
+    """Initialize the exdb package with instance directory *path*.
+    
+    This function intelligently creates those parts of the instance directory that don't yet exist:
+    - the repository is initalized (if necessary) and populated with the initial directory
+      structure. Tex templates are added and commited.
+    - the preview path is created
+    - the database is created and populated
+    """
+    global instancePath
+    instancePath = path
+    if path is None:
+        return
+    if not exists(path):
+        makedirs(path)
+    repo.initRepository()
+    previewPath = join(instancePath, "previews")
+    if not exists(previewPath):
+        mkdir(previewPath)
+    if sql.initDatabase():
+        populateDatabase()
+    logger.setLevel(logging.DEBUG)
+    
 
 def version(packageName="exdb", packageDir=dirname(__file__)):
     """Returns the version of this git managed software package.
@@ -46,30 +70,6 @@ def populateDatabase():
         exercise = Exercise.fromXMLString(xml)
         sql.addExercise(exercise, connection=conn)
     conn.close()
-
-
-def init(path):
-    """Initialize the exdb package with instance directory *path*.
-    
-    This function intelligently creates those parts of the instance directory that don't yet exist:
-    - the repository is initalized (if necessary) and populated with the initial directory
-      structure. Tex templates are added and commited.
-    - the preview path is created
-    - the database is created and populated
-    """
-    global instancePath
-    instancePath = path
-    if path is None:
-        return
-    if not exists(path):
-        makedirs(path)
-    repo.initRepository()
-    previewPath = join(instancePath, "previews")
-    if not exists(previewPath):
-        mkdir(previewPath)
-    if sql.initDatabase():
-        populateDatabase()
-    logger.setLevel(logging.DEBUG)
 
 
 def addExercise(exercise, connection=None):
@@ -160,4 +160,4 @@ def uni(string):
     return string.decode('utf-8')
 
 
-from . import repo, sql, tags, tex
+from exdb import repo, sql, tags, tex

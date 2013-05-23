@@ -15,6 +15,7 @@ from itertools import izip_longest
 from lxml import etree
 from lxml.builder import E
 
+
 def initTagsTable(conn):
     """Initialize the *tags* table in the SQLite database from the tagCategories.xml file.
     

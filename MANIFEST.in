@@ -1,0 +1,4 @@
+include exdb/exercise.xsd
+include exdb/dbschema.sql
+include exdb/preamble.tex
+include exdb/template.tex
