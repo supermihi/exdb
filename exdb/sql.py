@@ -88,6 +88,11 @@ def initDatabase():
     return True
 
 
+def tags(conn):
+    """Return a flat list of available tags."""
+    return [r[0] for r in conn.execute("SELECT name FROM tags WHERE is_tag")]
+        
+
 def addMissingTags(exid, cursor):
     """Adds missing tags in exercise with id *exid* to the database (under 'uncategorized').
     """
@@ -126,6 +131,7 @@ def addExercise(exercise, connection=None):
 def removeUnreferencedTags(curs):
     """Removes from the tags table all tags that are not referenced in any exercise.""" 
     curs.execute("DELETE FROM tags WHERE is_tag AND name NOT IN (SELECT tag FROM exercises_tags)")
+
 
 def updateExercise(exercise, connection=None):
     """Update the database with modified *exercise*."""

@@ -8,6 +8,7 @@
 from __future__ import unicode_literals
 
 import datetime
+import json
 from os.path import join, dirname
 
 from lxml import etree
@@ -21,6 +22,14 @@ class VersionMismatchError(Exception):
     def __init__(self, ours, yours):
         Exception.__init__(self, "Schema version {} is too recent (expected <= {})"
                            .format(yours, ours))
+
+
+class ExerciseEncoder(json.JSONEncoder):
+
+    def default(self, o):
+        if isinstance(o, datetime.datetime):
+            return o.strftime(Exercise.DATEFMT)
+        return json.JSONEncoder.default(self,o)
 
 
 class Exercise(dict):
@@ -82,6 +91,9 @@ class Exercise(dict):
         for tag in self.tags:
             xml.append(E.tag(tag))                
         return etree.tostring(xml, encoding="utf-8", xml_declaration=True, pretty_print=True).decode('utf-8')
+    
+    def toJSON(self):
+        return ExerciseEncoder().encode(self)
     
     @staticmethod
     def initXSD():
