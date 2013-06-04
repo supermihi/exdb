@@ -161,7 +161,6 @@ def history(maxEntries=10):
         entry = {"author": author, "date": date}
         try:
             if action in ("ADD", "REMOVE", "EDIT"):
-                print(descriptionParts)
                 creator, number = descriptionParts[1:]
                 entry.update({"action": action, "creator": creator, "number": number})
             elif action == "TAGS":
