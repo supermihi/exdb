@@ -17,7 +17,7 @@ logger = logging.getLogger("exdb")
 instancePath = None
 
 
-def init(path):
+def init(path, makePreviews=True, level=logging.WARNING):
     """Initialize the exdb package with instance directory *path*.
     
     This function intelligently creates those parts of the instance directory that don't yet exist:
@@ -28,6 +28,8 @@ def init(path):
     """
     global instancePath
     instancePath = path
+    logger.setLevel(level)
+    logger.addHandler(logging.StreamHandler(sys.stderr))
     if path is None:
         return
     if not exists(path):
@@ -38,7 +40,11 @@ def init(path):
         mkdir(previewPath)
     if sql.initDatabase():
         populateDatabase()
-    logger.setLevel(logging.DEBUG)
+    if makePreviews:
+        for exercise in sql.exercises():
+            logger.info("Generating preview (if needed) for {}".format(exercise.identifier()))
+            repo.generatePreviews(exercise)
+    
     
 
 def version(packageName="exdb", packageDir=dirname(__file__)):
@@ -47,10 +53,10 @@ def version(packageName="exdb", packageDir=dirname(__file__)):
     If this __init__ file is located inside a git repository, then the output of a call to
     "git describe --dirty" is returned. Otherwise, the version is found through pkg_resources.
     """
-    dir = normpath(join(packageDir, '..'))
-    if exists(join(dir, '.git')):
-        return subprocess.check_output(['git', 'describe', '--dirty'], cwd=dir).decode().strip()
-    import pkg_resources        
+    rootDir = normpath(join(packageDir, '..'))
+    if exists(join(rootDir, '.git')):
+        return subprocess.check_output(['git', 'describe', '--dirty'], cwd=rootDir).decode().strip()
+    import pkg_resources
     return pkg_resources.get_distribution(packageName).version
 
 
@@ -68,7 +74,8 @@ def populateDatabase():
         logger.info("reading exercise {}".format(xmlPath))
         xml = open(xmlPath, "rb").read()
         exercise = Exercise.fromXMLString(xml)
-        sql.addExercise(exercise, connection=conn)
+        sql.addExercise(exercise, connection=conn, deferCommit=True)
+    conn.commit()
     conn.close()
 
 

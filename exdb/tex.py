@@ -19,7 +19,7 @@ class CompilationError(Exception):
         self.log = log
         
     def __str__(self):
-        return "{}\n{}".format(self.msg, self.log)
+        return b"{}\n{}".format(self.msg, self.log)
 
 
 class ConversionError(Exception):

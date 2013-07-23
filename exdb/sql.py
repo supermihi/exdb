@@ -107,7 +107,7 @@ def addMissingTags(exid, cursor):
                            "VALUES (?,1,?)", product(newTags, [".{}.".format(uncatId)]))
 
 
-def addExercise(exercise, connection=None):
+def addExercise(exercise, connection=None, deferCommit=False):
     """Adds the given exercise to the database."""
     with conditionalConnect(connection) as conn:
         if exercise.number is None:
@@ -125,7 +125,8 @@ def addExercise(exercise, connection=None):
         cursor.executemany("INSERT INTO exercises_tags(exercise,tag) VALUES (?,?)",
                            [ (exid,tag) for tag in exercise.tags ])
         addMissingTags(exid, cursor)
-        conn.commit()
+        if not deferCommit:
+            conn.commit()
 
 
 def removeUnreferencedTags(curs):
@@ -187,10 +188,10 @@ def exercises(ids=None, pagination=None, connection=None):
         if pagination is None:
             pagination = {}
         orderby = pagination.get("orderby", "modified")
-        dir = "DESC" if pagination.get("descending") else "ASC"
+        direction = "DESC" if pagination.get("descending") else "ASC"
         limit = pagination.get("limit", -1)
         offset = pagination.get("offset", 0)
-        orderClause="ORDER BY {} {} LIMIT {} OFFSET {}".format(orderby, dir, limit, offset)
+        orderClause="ORDER BY {} {} LIMIT {} OFFSET {}".format(orderby, direction, limit, offset)
         dbExercises = readTable("exercises", whereClause, orderClause)
         exercises = []
         dbTags = readTable("exercises_tags", whereClause2, multi=True)

@@ -128,16 +128,16 @@ def generatePreviews(exercise, old=None):
     snippets which have changed compared to *old*.
     """
     from . import tex
-    for type in "exercise", "solution":
-        dct = exercise["tex_{}".format(type)]
+    for textype in "exercise", "solution":
+        dct = exercise["tex_{}".format(textype)]
         for lang, texcode in dct.items():
             if old:
                 try:
-                    if old["tex_" + type][lang] == texcode:
+                    if old["tex_" + textype][lang] == texcode:
                         continue
                 except KeyError:
                     pass
-            targetPath = join(exercisePath(exercise), "{}_{}.png".format(type, lang))
+            targetPath = join(exercisePath(exercise), "{}_{}.png".format(textype, lang))
             if not exists(targetPath) or datetime.fromtimestamp(os.path.getmtime(targetPath)) < exercise.modified:
                 image = tex.makePreview(texcode, lang, exercise.tex_preamble)
                 shutil.copy(image, targetPath)
