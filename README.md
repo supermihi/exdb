@@ -39,7 +39,9 @@ The fields are:
 6. *tex_exercise*: A dictionary mapping two-letter uppercase language code (currently, only "DE"
     and "EN" are supported) to the corresponding LaTeX code.
 7. *tex_solution*: The same as tex_exercise, but for solutions. May be left out.
-8. *tags*: A list of short strings used for categorizing the exercise. Any characters except comma
+8. *data_files*: A list of supplementary files included by the TeX code, e.g. images. These files
+    will be placed in the same directory as the XML file (no subdirectories are supported).
+9. *tags*: A list of short strings used for categorizing the exercise. Any characters except comma
    and double quote are allowed.
 
 
@@ -66,6 +68,7 @@ and some additional files and folders. The layout is as follows:
          |-- exercises
          |    +-- hans1
          |         |-- foo1.xml
+         |         |-- figure1.jpg
          |         |-- exercise_EN.png
          |         +-- solution_DE.png
          |-- tagCategories.xml

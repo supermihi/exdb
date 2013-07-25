@@ -121,7 +121,9 @@ def addExercise(exercise, connection=None, deferCommit=False):
                       exercise.modified, exercise.tex_exercise, exercise.tex_solution])
         exid = cursor.lastrowid
         cursor.executemany("INSERT INTO exercises_preambles(exercise, preamble) VALUES (?,?)",
-                           [ (exid,preamble) for preamble in exercise.tex_preamble ])
+                           [ (exid, preamble) for preamble in exercise.tex_preamble ])
+        cursor.executemany("INSERT INTO exercises_files(exercise, filename) VALUES (?,?)",
+                           [ (exid, filename) for filename in exercise.data_files ])
         cursor.executemany("INSERT INTO exercises_tags(exercise,tag) VALUES (?,?)",
                            [ (exid,tag) for tag in exercise.tags ])
         addMissingTags(exid, cursor)
@@ -143,6 +145,9 @@ def updateExercise(exercise, connection=None):
         cursor.execute("DELETE FROM exercises_preambles WHERE exercise=?", (id,))
         cursor.executemany("INSERT INTO exercises_preambles(exercise, preamble) VALUES(?,?)",
                            [ (id,preamble) for preamble in exercise.tex_preamble])
+        cursor.execute("DELETE FROM exercises_files WHERE exercise=?", (id,))
+        cursor.executemany("INSERT INTO exercises_files(exercise, filename) VALUES (?,?)",
+                           [ (id, filename) for filename in exercise.data_files ])
         cursor.execute("UPDATE exercises "
                        "SET description=?, modified=?, tex_exercise=?, tex_solution=? "
                        "WHERE creator=? AND number=?",
@@ -196,6 +201,7 @@ def exercises(ids=None, pagination=None, connection=None):
         exercises = []
         dbTags = readTable("exercises_tags", whereClause2, multi=True)
         dbPreambles = readTable("exercises_preambles", whereClause2, multi=True)
+        dbFilenames = readTable("exercises_files", whereClause2, multi=True)
         for id, row in dbExercises.items():
             exercise = Exercise(creator=row["creator"], number=row["number"],
                                 modified=row["modified"], description=row["description"],
@@ -204,6 +210,8 @@ def exercises(ids=None, pagination=None, connection=None):
                 exercise.tags = dbTags[id]
             if id in dbPreambles:
                 exercise.tex_preamble = dbPreambles[id]
+            if id in dbFilenames:
+                exercise.data_files = dbFilenames[id]
             exercises.append(exercise)
     return exercises
 
@@ -252,7 +260,10 @@ def exercise(creator, number, connection=None):
                                                "WHERE exercise=?", (ex["id"],))]
         preambles = [row[0] for row in conn.execute("SELECT preamble FROM exercises_preambles "
                                                     "WHERE exercise=?", (ex["id"],))]
+        files = [row[0] for row in conn.execute("SELECT filename FROM exercises_files "
+                                                "WHERE exercise=?", (ex["id"],))] 
         exercise = Exercise(creator=ex["creator"], number=ex["number"], modified=ex["modified"],
                             description=ex["description"], tex_exercise=ex["tex_exercise"],
-                            tex_solution=ex["tex_solution"], tags=tags, tex_preamble=preambles)
+                            tex_solution=ex["tex_solution"], tags=tags, tex_preamble=preambles,
+                            data_files=files)
     return exercise

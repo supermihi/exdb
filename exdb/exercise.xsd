@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="1">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="2">
 
 <!-- An attribute type allowing only certain language codes (currently: DE or EN) -->
 <xs:simpleType name="langattr">
@@ -35,6 +35,7 @@
             <xs:element name="tex_preamble" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
             <xs:element name="tex_exercise" type="textype" maxOccurs="unbounded"/>
             <xs:element name="tex_solution" type="textype" minOccurs="0" maxOccurs="unbounded"/>
+            <xs:element name="data_file" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
             <xs:element name="tag" type="tagtype" minOccurs="0" maxOccurs="unbounded"/>
         </xs:sequence>
         <xs:attribute name="schemaversion" type="xs:integer" use="required"/>

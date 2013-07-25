@@ -72,27 +72,30 @@ def populateDatabase():
     tags.initTagsTable(conn)
     for xmlPath in sorted(glob.glob(join(repo.repoPath(), "exercises", "*", "*.xml"))):
         logger.info("reading exercise {}".format(xmlPath))
-        xml = open(xmlPath, "rb").read()
-        exercise = Exercise.fromXMLString(xml)
+        exercise = Exercise.fromXMLFile(xmlPath)
+        #xml = open(xmlPath, "rb").read()
+        #exercise = Exercise.fromXMLString(xml)
         sql.addExercise(exercise, connection=conn, deferCommit=True)
     conn.commit()
     conn.close()
 
 
-def addExercise(exercise, connection=None):
+def addExercise(exercise, files=None, connection=None):
     """Adds *exercise* to the repository and updates the database and previews.
     
+    If the exercise contains external data files, *files* must be a list of (filename, data)
+    tuples.
     Uses the SQLite connection object *connection* if supplied.
     If the exercise does not yet have a number, it will be set by this method.
     """
     with sql.conditionalConnect(connection) as conn:
         sql.addExercise(exercise, connection=conn)
         tags.storeTree(tags.readTreeFromTable(conn)) 
-    repo.addExercise(exercise)
+    repo.addExercise(exercise, files)
     repo.generatePreviews(exercise)
 
 
-def updateExercise(exercise, connection=None, user=None, old=None):
+def updateExercise(exercise, files=None, connection=None, user=None, old=None):
     """Updates *exercise* in repository and database.
     
     Uses the SQLite *connection* if possible. If *user* is given, that value is used as
@@ -105,7 +108,7 @@ def updateExercise(exercise, connection=None, user=None, old=None):
     with sql.conditionalConnect(connection) as conn:    
         sql.updateExercise(exercise, connection=conn)
         tags.storeTree(tags.readTreeFromTable(conn))
-    repo.updateExercise(exercise, user)
+    repo.updateExercise(exercise, files=files, user=user, old=old)
     repo.generatePreviews(exercise, old)
 
 

@@ -15,6 +15,12 @@ CREATE TABLE IF NOT EXISTS exercises_preambles (
     FOREIGN KEY(exercise) REFERENCES exercises(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS exercises_files (
+	exercise INTEGER,
+	filename TEXT,
+	FOREIGN KEY(exercise) REFERENCES exercises(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS tags (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,

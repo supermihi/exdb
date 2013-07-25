@@ -11,6 +11,8 @@ import io, os, shutil, subprocess, tempfile
 from os.path import join, dirname
 import hashlib
 
+COMPILER = "pdflatex"
+COMPILE_ARGS = ["-interaction=nonstopmode", "-no-shell-escape", "-file-line-error"]
 
 class CompilationError(Exception):
     """Error indicating that LaTeX compilation has failed."""
@@ -27,7 +29,7 @@ class ConversionError(Exception):
     pass
 
 
-def makePreview(texcode, lang="DE", preambles=None, compiler="pdflatex"):
+def makePreview(texcode, lang="DE", preambles=None, files=None):
     """Create a preview image for the given tex code.
 
     If exdb is initialized with an instance dir, the preview is generated inside the preview
@@ -44,6 +46,8 @@ def makePreview(texcode, lang="DE", preambles=None, compiler="pdflatex"):
     """
     if preambles is None:
         preambles = []
+    if files is None:
+        files = []
     # create directory for the files
     import exdb
     if exdb.instancePath:
@@ -51,8 +55,10 @@ def makePreview(texcode, lang="DE", preambles=None, compiler="pdflatex"):
         h = hashlib.sha256()
         for line in preambles:
             h.update(line.encode('utf-8'))
+        for file in files:
+            h.update(file[1])
         h.update(lang.encode('utf-8'))
-        h.update(compiler.encode('utf-8'))
+        h.update(COMPILER.encode('utf-8'))
         h.update(texcode.encode('utf-8'))
         tmpdir = join(previewPath, h.hexdigest())
         if os.path.exists(tmpdir):
@@ -63,6 +69,11 @@ def makePreview(texcode, lang="DE", preambles=None, compiler="pdflatex"):
             os.mkdir(tmpdir)
     else:
         tmpdir = tempfile.mkdtemp()
+    
+    # write image files
+    for filename, data in files:
+        with io.open(join(tmpdir, filename), "wb") as f:
+            f.write(data)
     # write *texcode* to exercise.tex
     with io.open(join(tmpdir, "exercise.tex"), "wt", encoding='utf-8') as f:
         f.write(texcode)
@@ -90,11 +101,7 @@ def makePreview(texcode, lang="DE", preambles=None, compiler="pdflatex"):
 
     # call the compiler
     try:
-        subprocess.check_output([compiler,
-                                 "-interaction=nonstopmode",
-                                 "-no-shell-escape",
-                                 "-file-line-error",
-                                 "template.tex"],
+        subprocess.check_output([COMPILER] + COMPILE_ARGS + ["template.tex"],
                                  cwd=tmpdir, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
         shutil.rmtree(tmpdir)

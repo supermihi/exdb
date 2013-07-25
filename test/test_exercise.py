@@ -22,7 +22,7 @@ class XMLImportExportTest(unittest.TestCase):
 
     def test_importValidXML(self):
         exercise = Exercise.fromXMLFile(dataPath("jemand1.xml"))
-        self.assertEqual(exercise.schemaversion, 1)
+        self.assertEqual(exercise.schemaversion, 2)
         self.assertEqual(len(exercise.tags), 2)
         self.assertIn('aabc', exercise.tags)
         self.assertIsInstance(exercise.modified, datetime.datetime)
@@ -49,7 +49,7 @@ class XMLImportExportTest(unittest.TestCase):
                                 lambda : Exercise.fromXMLString(invalidXML2.encode('utf-8')))
         
     def test_importTooRecentSchema(self):
-        invalidXML = validXML.replace('schemaversion="1"', 'schemaversion="1000"')
+        invalidXML = validXML.replace('schemaversion="2"', 'schemaversion="1000"')
         self.assertRaises(VersionMismatchError,
                           lambda : Exercise.fromXMLString(invalidXML.encode('utf-8')))
 

@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<exercise xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" schemaversion="1" xsi:noNamespaceSchemaLocation="exercise.xsd">
+<exercise xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" schemaversion="2" xsi:noNamespaceSchemaLocation="exercise.xsd">
   <creator>jemand</creator>
   <number>1</number>
   <description>eine langweilige Aufgabe</description>

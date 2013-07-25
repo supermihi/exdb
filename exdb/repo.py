@@ -28,9 +28,17 @@ def templatePath():
     return join(repoPath(), "templates")
 
 
-def exercisePath(exercise):
-    """Directory inside the repository where *exercise* is (or should be) located."""
-    return join(repoPath(), 'exercises', exercise.identifier())
+def exercisePath(exercise=None, creator=None, number=None):
+    """Directory inside the repository where the given exercise is (or should be) located.
+    
+    The exercise may be either given as Exercise object *exercise* or by *creator* and 
+    *number*.
+    """
+    if exercise is not None:
+        identifier = exercise.identifier()
+    else:
+        identifier = "{}{}".format(creator, number)
+    return join(repoPath(), 'exercises', identifier)
 
 
 def callHg(*args, **kwargs):
@@ -75,17 +83,38 @@ def initRepository():
         pushIfRemote()
 
 
-def addExercise(exercise):
-    """Adds the given exercise to the repository."""
+def addExercise(exercise, files=None):
+    """Adds the given exercise to the repository.
+    
+    If it contains data files, *files* has to be a list of (filename, data) tuples.
+    """
     basePath = exercisePath(exercise)
     os.mkdir(basePath)
     xmlPath = join(basePath, exercise.identifier() + ".xml")
     with io.open(xmlPath, "wt", encoding="utf-8") as f:
         f.write(exercise.toXML())
-    commitMessage = "ADD {} {}".format(exercise.creator, exercise.number)
     callHg("add", relpath(xmlPath, repoPath()))
+    for fname, fdata in files or []:
+        fPath = join(basePath, fname)
+        with open(fPath, "wb") as f:
+            f.write(fdata)
+        callHg("add", relpath(fPath, repoPath()))            
+    commitMessage = "ADD {} {}".format(exercise.creator, exercise.number)
     callHg("commit", "-u", exercise.creator, "-m", commitMessage)
     pushIfRemote()
+    
+
+def loadFiles(creator, number, filenames):
+    """Load image files with names *filenames* for the specified exercise.
+    
+    Returns a list of (filename, data) tuples.
+    """
+    exPath = exercisePath(creator=creator, number=number)
+    files = []
+    for name in filenames:
+        data = open(join(exPath, name), "rb").read()
+        files.append( (name, data) )
+    return files
     
     
 def storeExerciseXML(exercise):
@@ -96,9 +125,23 @@ def storeExerciseXML(exercise):
         f.write(exercise.toXML())
 
 
-def updateExercise(exercise, user=None):
+def updateExercise(exercise, files=None, old=None, user=None):
     """Updates the given exercise: writes XML file and commits the repository."""
-    storeExerciseXML(exercise)    
+    basePath = exercisePath(exercise)
+    if old is None:
+        from exdb.exercise import Exercise
+        old = Exercise.fromXMLFile(join(basePath, exercise.identifier() + ".xml"))
+    # delete removed data files from the repository
+    for removedFile in set(old.data_files) - set(exercise.data_files):
+        callHg("remove", relpath(join(basePath, removedFile), repoPath()))
+    # add newly uploaded files (or overwrite existing ones)
+    for fname, fdata in files:
+        fPath = join(basePath, fname)
+        with open(fPath, "wb") as f:
+            f.write(fdata)
+        if fname not in old.data_files:
+            callHg("add", relpath(fPath, repoPath()))
+    storeExerciseXML(exercise)
     commitMessage = "EDIT {} {}".format(exercise.creator, exercise.number)
     callHg("commit", "-u", user or exercise.creator, "-m", commitMessage)
     pushIfRemote()
@@ -116,6 +159,7 @@ def removeExercise(creator, number, user=None):
 
 
 def updateTagTree(renames, user):
+    """Commit changes to the tag tree and push, if a remote repo exists."""
     callHg("commit", "-u", user, "-m", "TAGS")
     pushIfRemote()
 
@@ -128,10 +172,11 @@ def generatePreviews(exercise, old=None):
     snippets which have changed compared to *old*.
     """
     from . import tex
+    files = loadFiles(exercise.creator, exercise.number, exercise.data_files)
     for textype in "exercise", "solution":
         dct = exercise["tex_{}".format(textype)]
         for lang, texcode in dct.items():
-            if old:
+            if old and old.tex_preamble == exercise.tex_preamble:
                 try:
                     if old["tex_" + textype][lang] == texcode:
                         continue
@@ -139,7 +184,7 @@ def generatePreviews(exercise, old=None):
                     pass
             targetPath = join(exercisePath(exercise), "{}_{}.png".format(textype, lang))
             if not exists(targetPath) or datetime.fromtimestamp(os.path.getmtime(targetPath)) < exercise.modified:
-                image = tex.makePreview(texcode, lang, exercise.tex_preamble)
+                image = tex.makePreview(texcode, lang, exercise.tex_preamble, files)
                 shutil.copy(image, targetPath)
                 shutil.rmtree(dirname(image))
 

@@ -25,11 +25,12 @@ class VersionMismatchError(Exception):
 
 
 class ExerciseEncoder(json.JSONEncoder):
-
+    """JSON encoder for the Exercise class. Encodes datetimes using Exercise.DATEFMT.
+    """
     def default(self, o):
         if isinstance(o, datetime.datetime):
             return o.strftime(Exercise.DATEFMT)
-        return json.JSONEncoder.default(self,o)
+        return json.JSONEncoder.default(self, o)
 
 
 class Exercise(dict):
@@ -38,13 +39,14 @@ class Exercise(dict):
     DATEFMT = "%Y-%m-%dT%H:%M:%S"
     parser = None
     attributes = ["number", "creator", "description", "modified", "tex_preamble",
-                  "tex_exercise", "tex_solution", "tags"]
+                  "tex_exercise", "tex_solution", "data_files", "tags"]
     
     def __init__(self, **kwargs):
         """Initialize the exercise. Attributes can be passed as keyword arguments."""
         self.tex_exercise = {}
         self.tex_solution = {}
         self.tex_preamble = []
+        self.data_files = []
         self.tags = []
         self.description = ""
         self.number = None
@@ -88,6 +90,8 @@ class Exercise(dict):
             xml.append(E.tex_exercise(text, lang=lang))
         for lang, text in sorted(self.tex_solution.items()):
             xml.append(E.tex_solution(text, lang=lang))
+        for fname in self.data_files:
+            xml.append(E.data_file(fname))
         for tag in self.tags:
             xml.append(E.tag(tag))                
         return etree.tostring(xml, encoding="utf-8", xml_declaration=True, pretty_print=True).decode('utf-8')
@@ -132,6 +136,8 @@ class Exercise(dict):
             exercise.tex_exercise[uni(extex.get('lang'))] = uni(extex.text)
         for soltex in root.findall('tex_solution'):
             exercise.tex_solution[uni(soltex.get('lang'))] = uni(soltex.text)
+        for fname in root.findall('data_file'):
+            exercise.data_files.append(fname.text)
         for tag in root.findall('tag'):
             exercise.tags.append(uni(tag.text))
         return exercise

@@ -26,18 +26,13 @@ class TestCompilation(unittest.TestCase):
         shutil.rmtree(os.path.dirname(image))
         
     def test_pdflatex(self):
-        self.runPreview(self.tex_de, compiler="pdflatex")
-        self.runPreview(self.tex_en, compiler="pdflatex", lang="EN")
+        self.runPreview(self.tex_de)
+        self.runPreview(self.tex_en, lang="EN")
         self.assertRaisesRegexp(CompilationError, r"Missing \$ inserted",
-                                lambda : self.runPreview(self.tex_invalid, compiler="pdflatex"))
+                                lambda : self.runPreview(self.tex_invalid))
     
-    def test_xelatex(self):
-        self.runPreview(self.tex_de, compiler="xelatex")
-        self.runPreview(self.tex_en, compiler="xelatex", lang="EN")
-        self.assertRaisesRegexp(CompilationError, r"Missing \$ inserted",
-                                lambda : self.runPreview(self.tex_invalid, compiler="xelatex"))
     
     def test_previewPath(self):
         with testRepoEnv():
-            image = makePreview(self.tex_de, preambles=self.preambles, compiler="pdflatex")
+            image = makePreview(self.tex_de, preambles=self.preambles)
             self.assertTrue(os.path.exists(image))
