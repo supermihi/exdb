@@ -24,7 +24,7 @@ def readme():
     return io.open(readmeFile, "r", encoding="utf-8").read()
 
 setup(name='exdb',
-      version='0.3.1',
+      version='0.4.0',
       description="a Python package for managing a database of LaTeX'ed exercises",
       long_description=readme(),
       author='Michael Helmling',
