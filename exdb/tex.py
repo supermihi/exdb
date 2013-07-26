@@ -15,18 +15,13 @@ COMPILER = "pdflatex"
 COMPILE_ARGS = ["-interaction=nonstopmode", "-no-shell-escape", "-file-line-error"]
 
 class CompilationError(Exception):
-    """Error indicating that LaTeX compilation has failed."""
+    """Error indicating that LaTeX preview generation has failed."""
     def __init__(self, msg, log):
         self.msg = msg
         self.log = log
         
     def __str__(self):
         return b"{}\n{}".format(self.msg, self.log)
-
-
-class ConversionError(Exception):
-    """This error indicates that the pdf->png conversion has failed."""
-    pass
 
 
 def makePreview(texcode, lang="DE", preambles=None, files=None):
@@ -47,7 +42,7 @@ def makePreview(texcode, lang="DE", preambles=None, files=None):
     if preambles is None:
         preambles = []
     if files is None:
-        files = []
+        files = {}
     # create directory for the files
     import exdb
     if exdb.instancePath:
@@ -55,8 +50,9 @@ def makePreview(texcode, lang="DE", preambles=None, files=None):
         h = hashlib.sha256()
         for line in preambles:
             h.update(line.encode('utf-8'))
-        for file in files:
-            h.update(file[1])
+        for fname, fdata in files.items():
+            h.update(fname.encode('utf-8'))
+            h.update(fdata)
         h.update(lang.encode('utf-8'))
         h.update(COMPILER.encode('utf-8'))
         h.update(texcode.encode('utf-8'))
@@ -71,7 +67,7 @@ def makePreview(texcode, lang="DE", preambles=None, files=None):
         tmpdir = tempfile.mkdtemp()
     
     # write image files
-    for filename, data in files:
+    for filename, data in files.items():
         with io.open(join(tmpdir, filename), "wb") as f:
             f.write(data)
     # write *texcode* to exercise.tex
@@ -111,5 +107,5 @@ def makePreview(texcode, lang="DE", preambles=None, files=None):
                               cwd=tmpdir)
     except subprocess.CalledProcessError as e:
         shutil.rmtree(tmpdir)
-        raise ConversionError(e.message)
+        raise CompilationError("could not convert pdf to png", e.message)
     return join(tmpdir, "preview.png")

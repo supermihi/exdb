@@ -23,7 +23,11 @@ class DataFilesTest(unittest.TestCase):
         self.cm.__exit__(None, None, None)
         
     def testModifications(self):
-        
         exercise = sql.exercise("foobar", 1)
+        import copy
+        old = copy.copy(exercise)
+        exercise.data_files.append("test.txt")
+        exdb.updateExercise(exercise, {"test.txt": b""}, old)
+        old = copy.copy(exercise)
         exercise.data_files = []
-        exdb.updateExercise(exercise) 
+        self.assertRaises(exdb.tex.CompilationError, exdb.updateExercise, exercise, {}, old)

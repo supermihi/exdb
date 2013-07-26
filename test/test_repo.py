@@ -21,7 +21,7 @@ from exdb.exercise import Exercise
 class TestRepository(unittest.TestCase):
     
     def setUp(self):
-        self.cm = makeTestRepoEnv("copy", makePreviews=False)
+        self.cm = makeTestRepoEnv("copy")
         self.cm.__enter__()
     
     def tearDown(self):
@@ -37,7 +37,7 @@ class TestRepository(unittest.TestCase):
         
         exercise = Exercise.fromXMLFile(dataPath("jemand1.xml"))
         exercise.number = None
-        exdb.addExercise(exercise)
+        exdb.addExercise(exercise, {})
         self.assertEqual(exercise.number, 1)
         self.assertEqual(len(exdb.sql.exercises()), numExercises+1)
         exdb.removeExercise("jensmander", 1)
@@ -59,4 +59,4 @@ class TestCloneInit(unittest.TestCase):
             self.assertTrue(exists(join(repoPath(), "tagCategories.xml")))
             for filename in ("foobar1.xml", "example.cpp", "solution_EN.png",
                              "solution_DE.png", "exercise_DE.png"):
-                self.assertTrue(exists(join(repoPath(), "exercises", "foobar1", filename)))
+                self.assertTrue(exists(join(repoPath(), "exercises", "foobar1", filename)), "{} missing".format(filename))

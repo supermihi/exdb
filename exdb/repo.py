@@ -43,8 +43,8 @@ def exercisePath(exercise=None, creator=None, number=None):
 def xmlPath(*args, **kwargs):
     """Return the path of the exercise's XML file. Takes the same arguments as *exercisePath*.
     """
-    dir = exercisePath(*args, **kwargs)
-    return join(dir, basename(dir) + ".xml")
+    exerciseDir = exercisePath(*args, **kwargs)
+    return join(exerciseDir, basename(exerciseDir) + ".xml")
 
 
 def callHg(*args, **kwargs):
@@ -93,37 +93,16 @@ def initRepository(source=None):
         pushIfRemote()
 
 
-def addExercise(exercise, files=None):
-    """Adds the given exercise to the repository.
-    
-    If it contains data files, *files* has to be a list of (filename, data) tuples.
-    """
-    basePath = exercisePath(exercise)
-    os.mkdir(basePath)
-    xmlPath = join(basePath, exercise.identifier() + ".xml")
-    with io.open(xmlPath, "wt", encoding="utf-8") as f:
-        f.write(exercise.toXML())
-    callHg("add", relpath(xmlPath, repoPath()))
-    for fname, fdata in files or []:
-        fPath = join(basePath, fname)
-        with open(fPath, "wb") as f:
-            f.write(fdata)
-        callHg("add", relpath(fPath, repoPath()))            
-    commitMessage = "ADD {} {}".format(exercise.creator, exercise.number)
-    callHg("commit", "-u", exercise.creator, "-m", commitMessage)
-    pushIfRemote()
-    
-
 def loadFiles(creator, number, filenames):
     """Load image files with names *filenames* for the specified exercise.
     
     Returns a list of (filename, data) tuples.
     """
     exPath = exercisePath(creator=creator, number=number)
-    files = []
+    files = {}
     for name in filenames:
         data = open(join(exPath, name), "rb").read()
-        files.append( (name, data) )
+        files[name] = data
     return files
     
     
@@ -138,23 +117,123 @@ def loadFromXML(creator, number):
     return Exercise.fromXMLFile(xmlPath(creator=creator, number=number))
 
 
-def updateExercise(exercise, files=None, old=None, user=None):
-    """Updates the given exercise: writes XML file and commits the repository."""
+def compileSnippets(exercise, files, old=None, copy=False, init=False):
+    """Compiles all TeX snippets of *exercise* or raises an error if this is not possible.
+    
+    *files* is a dict mapping filename to data of newly uploaded files.
+    
+    If *copy* is True, successfully compiled previews are copied into the exercise directory in the
+    repository, i.e., become the "official" previews.
+    If the exercise existed before, it should be given in *old*. This function will only recompile
+    parts that have potentially changed against the old version.
+    
+    Returns a dictionary mapping (textype,lang) tuples to (previewtype, path) tuples, where
+    *previewtype* is one of "preview" and "temp" and *path* is the absolute image path.
+    
+    *init* enables a special mode made for initializing the repository after e.g. cloning. It
+    generates all previews which do not yet exist in the filesystem (implies *copy=True*).
+    
+    If compilation of a snippet fails, a tex.CompilationError exception is raised. Besides its
+    normal attribute, the *successful* attribute contains the dictionary that would normally be
+    returned (containing links to all snippets compiled successfully so far), and the *textype*
+    and *lang* attributes of the exception tell which snippet failed.
+    """
+    if old:
+        old = loadFromXML(exercise.creator, exercise.number)
+        files = files.copy()
+        files.update(loadFiles(exercise.creator, exercise.number,
+                               (n for n in exercise.data_files if n not in files)))
+        compileAll = False
+        if len(files) > 0:
+            compileAll = True
+        elif old.tex_preamble != exercise.tex_preamble:
+            compileAll = True
+        elif old.data_files != exercise.data_files:
+            compileAll = True
+    else:
+        compileAll = True
+    if init:
+        copy=True
+        files = loadFiles(exercise.creator, exercise.number, exercise.data_files)
+    from . import tex
+    ret = {}
+    for textype in "exercise", "solution":
+        dct = exercise["tex_" + textype]
+        for lang, code in dct.items():
+            try:
+                target = join(exercisePath(exercise), "{}_{}.png".format(textype, lang))
+                if init and exists(target):
+                    continue
+                if not compileAll and old:
+                    try:
+                        if old["tex_"+textype][lang] == code:
+                            ret[textype, lang] = ("preview", target)
+                            continue
+                    except KeyError:
+                        pass
+                imgpath = tex.makePreview(code, lang, exercise.tex_preamble, files)
+                ret[textype, lang] = ("temp", imgpath)
+                if copy:
+                    shutil.copy(imgpath, target)
+                    shutil.rmtree(dirname(imgpath))
+            except tex.CompilationError as e:
+                e.textype = textype
+                e.lang = lang
+                e.successful = ret
+                raise e
+    return ret
+
+
+def addExercise(exercise, files):
+    """Adds the given exercise to the repository.
+    
+    *files* is a dict mapping filenames to data for all external data files.
+    """
+    basePath = exercisePath(exercise)
+    os.mkdir(basePath)
+    xmlPath = join(basePath, exercise.identifier() + ".xml")
+    with io.open(xmlPath, "wt", encoding="utf-8") as f:
+        f.write(exercise.toXML())
+    callHg("add", relpath(xmlPath, repoPath()))
+    for fname, fdata in files.items():
+        fPath = join(basePath, fname)
+        with open(fPath, "wb") as f:
+            f.write(fdata)
+        callHg("add", relpath(fPath, repoPath()))            
+    commitMessage = "ADD {} {}".format(exercise.creator, exercise.number)
+    callHg("commit", "-u", exercise.creator, "-m", commitMessage)
+    pushIfRemote()
+    compileSnippets(exercise, files, copy=True)
+
+
+def updateExercise(exercise, files, old, user=None):
+    """Updates the given exercise on disk and in the repository.
+    
+    This method writes the XML file and possible data files, generates previews, and commits
+    the repository.
+    """
     basePath = exercisePath(exercise)
     # delete removed data files from the repository
     for removedFile in set(old.data_files) - set(exercise.data_files):
         callHg("remove", relpath(join(basePath, removedFile), repoPath()))
-    # add newly uploaded files (or overwrite existing ones)
-    for fname, fdata in files or []:
+    # delete previews of removed tex snippets
+    for textype in "exercise", "solution":
+        dct = old["tex_"+textype]
+        for lang in dct:
+            if lang not in exercise["tex_"+textype]:
+                os.remove(join(basePath, "{}_{}.png".format(textype, lang)))
+    # add newly uploaded files
+    for fname, fdata in files.items():
         fPath = join(basePath, fname)
         with open(fPath, "wb") as f:
             f.write(fdata)
-        if fname not in old.data_files:
+        if fname not in old.data_files: # otherwise an existing data file was replaced
             callHg("add", relpath(fPath, repoPath()))
     storeExerciseXML(exercise)
     commitMessage = "EDIT {} {}".format(exercise.creator, exercise.number)
     callHg("commit", "-u", user or exercise.creator, "-m", commitMessage)
     pushIfRemote()
+    compileSnippets(exercise, files, old, copy=True)
 
 
 def removeExercise(creator, number, user=None):
@@ -172,56 +251,6 @@ def updateTagTree(renames, user):
     """Commit changes to the tag tree and push, if a remote repo exists."""
     callHg("commit", "-u", user, "-m", "TAGS")
     pushIfRemote()
-
-
-def checkCompilation(exercise, files=None):
-    """Ensurse that all TeX snippets of *exercise* compile or raises an error otherwise.
-    
-    *files*, if given, is a list ot (filename, data) tuples containing newly uploaded files.
-    If the exercise existed before, this function will only recompile parts that have potentially
-    changed.
-    """
-    try:
-        old = loadFromXML(exercise.creator, exercise.number)
-        sumFiles = []
-        filesDict = {name:data for name,data in files} if files else {}
-        for filename in exercise.data_files:
-            if filename not in [f[0] for f in files]:
-                pass
-    except FileNotFoundError as e:
-        pass
-        
-    
-    
-def generatePreviews(exercise, old=None, files=None, onlyCheck=False):
-    """Generate preview images for the given *exercise*.
-    
-    This creates files of the form foo1/solution_EN.png for all existing tex snippets.
-    *old* may be a previous exercise object; in that case, previews are generated only for those
-    snippets which have changed compared to *old*.
-    
-    With *onlyCheck* enabled, the preview images in the exercises folder are not updated, instead
-    only correct compilation is checked.
-    """
-    from . import tex
-    files = loadFiles(exercise.creator, exercise.number, exercise.data_files)
-    for textype in "exercise", "solution":
-        dct = exercise["tex_{}".format(textype)]
-        for lang, texcode in dct.items():
-            if old and old.tex_preamble == exercise.tex_preamble:
-                try:
-                    if old["tex_" + textype][lang] == texcode:
-                        continue
-                except KeyError:
-                    pass
-            targetPath = join(exercisePath(exercise), "{}_{}.png".format(textype, lang))
-            if not exists(targetPath) or \
-                    datetime.fromtimestamp(os.path.getmtime(targetPath)) < exercise.modified:
-                image = tex.makePreview(texcode, lang, exercise.tex_preamble, files)
-                if not onlyCheck:
-                    shutil.copy(image, targetPath)
-                    shutil.rmtree(dirname(image))
-                    
 
 
 def pushIfRemote():

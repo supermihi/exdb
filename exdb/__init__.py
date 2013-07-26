@@ -17,7 +17,7 @@ logger = logging.getLogger("exdb")
 instancePath = None
 
 
-def init(path, repository=None, makePreviews=True, level=logging.WARNING):
+def init(path, repository=None, level=logging.WARNING):
     """Initialize the exdb package with instance directory *path*.
     
     This function intelligently creates those parts of the instance directory that don't yet exist:
@@ -27,8 +27,7 @@ def init(path, repository=None, makePreviews=True, level=logging.WARNING):
       instead.
     - the directory for temporary preview images is created
     - the database is created and populated
-    - preview images are generated (if they don't exist) for all exercises in the repository,
-      unless you specify *makePreviews=False*.
+    - preview images are generated
     """
     if path is None:
         return
@@ -44,11 +43,9 @@ def init(path, repository=None, makePreviews=True, level=logging.WARNING):
         mkdir(previewPath)
     if sql.initDatabase():
         populateDatabase()
-    if makePreviews:
-        for exercise in sql.exercises():
-            logger.info("Generating preview (if needed) for {}".format(exercise.identifier()))
-            repo.generatePreviews(exercise)
-    
+    for exercise in sql.exercises():
+        repo.compileSnippets(exercise, {}, init=True)
+  
 
 def version(packageName="exdb", packageDir=dirname(__file__)):
     """Returns the version of this git managed software package.
@@ -84,7 +81,7 @@ def populateDatabase():
     conn.close()
 
 
-def addExercise(exercise, files=None, connection=None):
+def addExercise(exercise, files, connection=None):
     """Adds *exercise* to the repository and updates the database and previews.
     
     If the exercise contains external data files, *files* must be a list of (filename, data)
@@ -92,31 +89,27 @@ def addExercise(exercise, files=None, connection=None):
     Uses the SQLite connection object *connection* if supplied.
     If the exercise does not yet have a number, it will be set by this method.
     """
+    exercise.validate()
+    repo.compileSnippets(exercise, files)
     with sql.conditionalConnect(connection) as conn:
         sql.addExercise(exercise, connection=conn)
         tags.storeTree(tags.readTreeFromTable(conn)) 
     repo.addExercise(exercise, files)
-    repo.generatePreviews(exercise)
 
 
-def updateExercise(exercise, files=None, connection=None, user=None, old=None):
+def updateExercise(exercise, files, old, connection=None, user=None):
     """Updates *exercise* in repository and database.
     
     Uses the SQLite *connection* if possible. If *user* is given, that value is used as
     commit author in the repository; otherwise exercise.creator is used.
-    
-    The *old* exercise can be given to prevent unnecessary TeX recompilation: When the
-    TeX code in the new and old exercise coincides, no new image is compiled.
     """
-    if old is None:
-        old = repo.loadFromXML(exercise.creator, exercise.number)
-    repo.generatePreviews(exercise, old, onlyCheck=True)
+    exercise.validate()
+    repo.compileSnippets(exercise, files, old)
     exercise.modified = datetime.datetime.now()
     with sql.conditionalConnect(connection) as conn:    
         sql.updateExercise(exercise, connection=conn)
         tags.storeTree(tags.readTreeFromTable(conn))
-    repo.updateExercise(exercise, files=files, user=user, old=old)
-    repo.generatePreviews(exercise, old)
+    repo.updateExercise(exercise, files, old, user=user)
 
 
 def removeExercise(creator, number, connection=None, user=None):

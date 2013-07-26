@@ -72,9 +72,18 @@ class Exercise(dict):
 
     def identifier(self):
         return "{}{}".format(self.creator, self.number)                
-                
-    def toXML(self):
-        """Return a string containing the XML-encoded exercise."""
+    
+    def validate(self):
+        if len(self.description.strip()) == 0:
+            raise ValueError("Exercise description is empty")
+        if len(self.tex_exercise) == 0:
+            raise ValueError("Need exercise TeX in at least one language")
+        xml = self.toXMLRoot()
+        if self.number is None:
+            xml.find('number').text = "1" # workaround: may be None for new exercises
+        Exercise.schema.validate(xml)
+    
+    def toXMLRoot(self):
         Exercise.initXSD()
         xml = E.exercise(
                 E.creator(self.creator),
@@ -93,8 +102,13 @@ class Exercise(dict):
         for fname in self.data_files:
             xml.append(E.data_file(fname))
         for tag in self.tags:
-            xml.append(E.tag(tag))                
-        return etree.tostring(xml, encoding="utf-8", xml_declaration=True, pretty_print=True).decode('utf-8')
+            xml.append(E.tag(tag))
+        return xml
+
+    def toXML(self):
+        """Return a string containing the XML-encoded exercise."""                        
+        return etree.tostring(self.toXMLRoot(), encoding="utf-8", xml_declaration=True,
+                              pretty_print=True).decode('utf-8')
     
     def toJSON(self):
         return ExerciseEncoder().encode(self)
@@ -104,8 +118,8 @@ class Exercise(dict):
         if Exercise.parser is None:
             xsd = etree.parse(join(dirname(__file__), "exercise.xsd"))
             Exercise.SCHEMAVERSION = int(xsd.getroot().get("version"))
-            schema = etree.XMLSchema(xsd)
-            Exercise.parser = etree.XMLParser(schema=schema)
+            Exercise.schema = etree.XMLSchema(xsd)
+            Exercise.parser = etree.XMLParser(schema=Exercise.schema)
         return Exercise.parser
 
     @staticmethod
