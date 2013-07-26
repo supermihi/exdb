@@ -1,1 +1,6 @@
+data/tagCategories.xml.i
+data/templates/preamble.tex.i
+data/exercises/foobar1/foobar1.xml.i
+data/templates/template.tex.i
 data/exercises/jensmander1/jensmander1.xml.i
+data/exercises/foobar1/example.cpp.i

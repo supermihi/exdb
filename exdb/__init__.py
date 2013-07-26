@@ -17,24 +17,28 @@ logger = logging.getLogger("exdb")
 instancePath = None
 
 
-def init(path, makePreviews=True, level=logging.WARNING):
+def init(path, repository=None, makePreviews=True, level=logging.WARNING):
     """Initialize the exdb package with instance directory *path*.
     
     This function intelligently creates those parts of the instance directory that don't yet exist:
-    - the repository is initalized (if necessary) and populated with the initial directory
-      structure. Tex templates are added and commited.
-    - the preview path is created
+    - if the "repo" subdirectory does not exist or does not contain a hg repository, it is
+      initalized and populated with the initial directory structure. Tex templates are added and
+      commited. If the *repository* argument is given, the repository is cloned from that URI 
+      instead.
+    - the directory for temporary preview images is created
     - the database is created and populated
+    - preview images are generated (if they don't exist) for all exercises in the repository,
+      unless you specify *makePreviews=False*.
     """
+    if path is None:
+        return
     global instancePath
     instancePath = path
     logger.setLevel(level)
     logger.addHandler(logging.StreamHandler(sys.stderr))
-    if path is None:
-        return
     if not exists(path):
         makedirs(path)
-    repo.initRepository()
+    repo.initRepository(repository)
     previewPath = join(instancePath, "previews")
     if not exists(previewPath):
         mkdir(previewPath)
@@ -45,7 +49,6 @@ def init(path, makePreviews=True, level=logging.WARNING):
             logger.info("Generating preview (if needed) for {}".format(exercise.identifier()))
             repo.generatePreviews(exercise)
     
-    
 
 def version(packageName="exdb", packageDir=dirname(__file__)):
     """Returns the version of this git managed software package.
@@ -55,7 +58,8 @@ def version(packageName="exdb", packageDir=dirname(__file__)):
     """
     rootDir = normpath(join(packageDir, '..'))
     if exists(join(rootDir, '.git')):
-        return subprocess.check_output(['git', 'describe', '--dirty'], cwd=rootDir).decode().strip()
+        out = subprocess.check_output(['git', 'describe', '--dirty'], cwd=rootDir)
+        return out.decode().strip()
     import pkg_resources
     return pkg_resources.get_distribution(packageName).version
 
@@ -104,6 +108,9 @@ def updateExercise(exercise, files=None, connection=None, user=None, old=None):
     The *old* exercise can be given to prevent unnecessary TeX recompilation: When the
     TeX code in the new and old exercise coincides, no new image is compiled.
     """
+    if old is None:
+        old = repo.loadFromXML(exercise.creator, exercise.number)
+    repo.generatePreviews(exercise, old, onlyCheck=True)
     exercise.modified = datetime.datetime.now()
     with sql.conditionalConnect(connection) as conn:    
         sql.updateExercise(exercise, connection=conn)

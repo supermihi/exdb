@@ -8,7 +8,7 @@
 from __future__ import unicode_literals
 
 from exdb.tex import makePreview, CompilationError
-from . import testRepoEnv
+from . import makeTestRepoEnv
 import os.path, shutil
 import unittest
 
@@ -33,6 +33,6 @@ class TestCompilation(unittest.TestCase):
     
     
     def test_previewPath(self):
-        with testRepoEnv():
+        with makeTestRepoEnv("empty"):
             image = makePreview(self.tex_de, preambles=self.preambles)
             self.assertTrue(os.path.exists(image))

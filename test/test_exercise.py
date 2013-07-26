@@ -5,18 +5,24 @@
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
 
+"""Test XML import and export of Exercise and validity checks."""
+
 from __future__ import unicode_literals
 
 import datetime
 import unittest
 import io
+import json
+
+from lxml.etree import XMLSyntaxError
+
 from . import dataPath
-
 from exdb.exercise import Exercise, VersionMismatchError
-
+   
 def setUpModule():
     global validXML
     validXML = io.open(dataPath("jemand1.xml"), encoding="utf-8").read()
+
 
 class XMLImportExportTest(unittest.TestCase):
 
@@ -39,7 +45,7 @@ class XMLImportExportTest(unittest.TestCase):
         vlines = validXML.splitlines()
         vlines[6:6] = ["<unspecifiedElement>bla</unspecifiedElement>"]
         invalidXML = "\n".join(vlines)
-        from lxml.etree import XMLSyntaxError
+        
         self.assertRaisesRegexp(XMLSyntaxError, "not expected",
                                 lambda : Exercise.fromXMLString(invalidXML.encode('utf-8')))
         del vlines[6]
@@ -60,4 +66,22 @@ class XMLImportExportTest(unittest.TestCase):
         
     def test_xmlExport(self):
         self.maxDiff = None
-        self.assertEqual(Exercise.fromXMLString(validXML.encode('utf-8')).toXML(), validXML)
+        self.assertEqual(Exercise.fromXMLString(validXML.encode('utf-8')).toXML(),
+                         validXML)
+
+
+class JSONExportTest(unittest.TestCase):
+    
+    def test_jsonExport(self):
+        exercise = Exercise.fromXMLString(validXML.encode("utf-8"))
+        jsonEx = exercise.toJSON()
+        jsonDecoded = json.loads(jsonEx)
+        for attrib, value in exercise.items():
+            if isinstance(value, datetime.datetime):
+                self.assertEqual(datetime.datetime.strptime(jsonDecoded[attrib], Exercise.DATEFMT),
+                                 value)
+            else:
+                self.assertEqual(jsonDecoded[attrib], value)
+        for attrib in jsonDecoded:
+            assert attrib in exercise
+        

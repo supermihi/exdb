@@ -8,7 +8,7 @@
 from __future__ import unicode_literals
 
 import io, os, subprocess, shutil
-from os.path import dirname, join, exists, relpath
+from os.path import basename, dirname, join, exists, relpath
 from datetime import datetime
 
 
@@ -40,6 +40,12 @@ def exercisePath(exercise=None, creator=None, number=None):
         identifier = "{}{}".format(creator, number)
     return join(repoPath(), 'exercises', identifier)
 
+def xmlPath(*args, **kwargs):
+    """Return the path of the exercise's XML file. Takes the same arguments as *exercisePath*.
+    """
+    dir = exercisePath(*args, **kwargs)
+    return join(dir, basename(dir) + ".xml")
+
 
 def callHg(*args, **kwargs):
     """Calls the hg script in the repo directory with given args.
@@ -51,18 +57,22 @@ def callHg(*args, **kwargs):
     return subprocess.check_output(["hg"] + list(args), **kwargs)
 
 
-def initRepository():
+def initRepository(source=None):
     """Ensure that an initial exercise repository exists.
     
-    Calls "hg init" if necessary, adds missing templates, creates a bare tagCategories.xml, and
-    commits any changes.    
+    If the "repo" directory already exists, nothing happens. Otherwise, if *source* is given,
+    the repository is cloned from that URI; if not, an initial repository is created with the
+    default templates provided by this package.
     """
     path = repoPath()
     if not exists(path):
         os.makedirs(path)
     hgChanges = False
     if not exists(join(path, ".hg")):
-        callHg("init")
+        if source:
+            callHg("clone", source, path)
+        else:
+            callHg("init")
     for subdir in ("templates", "exercises"):
         if not exists(join(path, subdir)):
             os.mkdir(join(path, subdir))
@@ -119,23 +129,23 @@ def loadFiles(creator, number, filenames):
     
 def storeExerciseXML(exercise):
     """Write the XML file encoding the given exercise to the appropriate path."""
-    basePath = exercisePath(exercise)
-    xmlPath = join(basePath, exercise.identifier() + ".xml")
-    with io.open(xmlPath, "wt", encoding="utf-8") as f:
+    with io.open(xmlPath(exercise=exercise), "wt", encoding="utf-8") as f:
         f.write(exercise.toXML())
+
+
+def loadFromXML(creator, number):
+    from exdb.exercise import Exercise
+    return Exercise.fromXMLFile(xmlPath(creator=creator, number=number))
 
 
 def updateExercise(exercise, files=None, old=None, user=None):
     """Updates the given exercise: writes XML file and commits the repository."""
     basePath = exercisePath(exercise)
-    if old is None:
-        from exdb.exercise import Exercise
-        old = Exercise.fromXMLFile(join(basePath, exercise.identifier() + ".xml"))
     # delete removed data files from the repository
     for removedFile in set(old.data_files) - set(exercise.data_files):
         callHg("remove", relpath(join(basePath, removedFile), repoPath()))
     # add newly uploaded files (or overwrite existing ones)
-    for fname, fdata in files:
+    for fname, fdata in files or []:
         fPath = join(basePath, fname)
         with open(fPath, "wb") as f:
             f.write(fdata)
@@ -164,12 +174,34 @@ def updateTagTree(renames, user):
     pushIfRemote()
 
 
-def generatePreviews(exercise, old=None):
+def checkCompilation(exercise, files=None):
+    """Ensurse that all TeX snippets of *exercise* compile or raises an error otherwise.
+    
+    *files*, if given, is a list ot (filename, data) tuples containing newly uploaded files.
+    If the exercise existed before, this function will only recompile parts that have potentially
+    changed.
+    """
+    try:
+        old = loadFromXML(exercise.creator, exercise.number)
+        sumFiles = []
+        filesDict = {name:data for name,data in files} if files else {}
+        for filename in exercise.data_files:
+            if filename not in [f[0] for f in files]:
+                pass
+    except FileNotFoundError as e:
+        pass
+        
+    
+    
+def generatePreviews(exercise, old=None, files=None, onlyCheck=False):
     """Generate preview images for the given *exercise*.
     
     This creates files of the form foo1/solution_EN.png for all existing tex snippets.
     *old* may be a previous exercise object; in that case, previews are generated only for those
     snippets which have changed compared to *old*.
+    
+    With *onlyCheck* enabled, the preview images in the exercises folder are not updated, instead
+    only correct compilation is checked.
     """
     from . import tex
     files = loadFiles(exercise.creator, exercise.number, exercise.data_files)
@@ -183,10 +215,13 @@ def generatePreviews(exercise, old=None):
                 except KeyError:
                     pass
             targetPath = join(exercisePath(exercise), "{}_{}.png".format(textype, lang))
-            if not exists(targetPath) or datetime.fromtimestamp(os.path.getmtime(targetPath)) < exercise.modified:
+            if not exists(targetPath) or \
+                    datetime.fromtimestamp(os.path.getmtime(targetPath)) < exercise.modified:
                 image = tex.makePreview(texcode, lang, exercise.tex_preamble, files)
-                shutil.copy(image, targetPath)
-                shutil.rmtree(dirname(image))
+                if not onlyCheck:
+                    shutil.copy(image, targetPath)
+                    shutil.rmtree(dirname(image))
+                    
 
 
 def pushIfRemote():

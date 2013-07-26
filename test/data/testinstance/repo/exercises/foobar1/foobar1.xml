@@ -1,0 +1,14 @@
+<?xml version='1.0' encoding='utf-8'?>
+<exercise xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" schemaversion="2" xsi:noNamespaceSchemaLocation="exercise.xsd">
+  <creator>foobar</creator>
+  <number>1</number>
+  <description>demo exercise</description>
+  <modified>2012-05-30T09:36:10</modified>
+  <tex_preamble>\usepackage{listings}</tex_preamble>
+  <tex_exercise lang="DE">$x$</tex_exercise>
+  <tex_solution lang="DE">$y$</tex_solution>
+  <tex_solution lang="EN">$z$\lstinputlisting{example.cpp}</tex_solution>
+  <data_file>example.cpp</data_file>
+  <tag>aabc</tag>
+  <tag>Revised Simplex</tag>
+</exercise>
