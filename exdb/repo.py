@@ -139,7 +139,6 @@ def compileSnippets(exercise, files, old=None, copy=False, init=False):
     and *lang* attributes of the exception tell which snippet failed.
     """
     if old:
-        old = loadFromXML(exercise.creator, exercise.number)
         files = files.copy()
         files.update(loadFiles(exercise.creator, exercise.number,
                                (n for n in exercise.data_files if n not in files)))
