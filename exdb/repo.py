@@ -9,7 +9,10 @@ from __future__ import unicode_literals
 
 import io, os, subprocess, shutil
 from os.path import basename, dirname, join, exists, relpath
-from datetime import datetime
+
+class PushError(IOError):
+    """Raised if changes to the repo cannot be pushed."""
+    pass
 
 
 def repoPath():
@@ -201,8 +204,10 @@ def addExercise(exercise, files):
         callHg("add", relpath(fPath, repoPath()))            
     commitMessage = "ADD {} {}".format(exercise.creator, exercise.number)
     callHg("commit", "-u", exercise.creator, "-m", commitMessage)
-    pushIfRemote()
-    compileSnippets(exercise, files, copy=True)
+    try:
+        pushIfRemote()
+    finally:
+        compileSnippets(exercise, files, copy=True)
 
 
 def updateExercise(exercise, files, old, user=None):
@@ -231,8 +236,10 @@ def updateExercise(exercise, files, old, user=None):
     storeExerciseXML(exercise)
     commitMessage = "EDIT {} {}".format(exercise.creator, exercise.number)
     callHg("commit", "-u", user or exercise.creator, "-m", commitMessage)
-    pushIfRemote()
-    compileSnippets(exercise, files, old, copy=True)
+    try:
+        pushIfRemote()
+    finally:
+        compileSnippets(exercise, files, old, copy=True)
 
 
 def removeExercise(creator, number, user=None):
@@ -256,7 +263,11 @@ def pushIfRemote():
     """Push the repository if a remote address is configured."""
     ans = callHg("showconfig", "paths.default")
     if len(ans) > 3:
-        callHg("push")
+        try:
+            callHg("push")
+        except subprocess.CalledProcessError:
+            raise PushError("Failed to push changes to remote repository.\n\n"
+                            "If this problem persists, please contact administrator.")
 
 
 def history(maxEntries=10):
