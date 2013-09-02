@@ -9,7 +9,6 @@ from __future__ import unicode_literals
 
 import io, os, subprocess, shutil
 from os.path import basename, dirname, join, exists, relpath
-from datetime import datetime
 
 
 def repoPath():
