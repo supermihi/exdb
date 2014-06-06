@@ -31,7 +31,7 @@ setup(name='exdb',
       author_email='michaelhelmling@posteo.de',
       url='http://github.com/supermihi/exdb',
       license='GPL3',
-      packages=find_packages(),
+      packages=[p for p in find_packages() if p != 'test'],
       install_requires=["lxml"],
       test_requires=["nose"],
       test_suite="nose.collector"
