@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS exercises (
     creator TEXT NOT NULL,
     number INTEGER NOT NULL,
     description TEXT,
-    modified DATETIME NOT NULL,
+    modified TIMESTAMP NOT NULL,
     tex_exercise TEXDICT,
     tex_solution TEXDICT
 );

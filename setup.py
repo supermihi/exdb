@@ -1,6 +1,6 @@
-#!/usr/bin/python2
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# Copyright 2013 Michael Helmling
+# Copyright 2013-2015 Michael Helmling
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
@@ -15,7 +15,7 @@ CLASSIFIERS = [
     'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
     'Natural Language :: English',
     'Operating System :: OS Independent',
-    'Programming Language :: Python :: 2',
+    'Programming Language :: Python :: 3',
     'Topic :: Database'
 ]
 
@@ -32,7 +32,6 @@ setup(name='exdb',
       url='http://github.com/supermihi/exdb',
       license='GPL3',
       packages=[p for p in find_packages() if p != 'test'],
-      install_requires=["lxml"],
-      test_requires=["nose"],
+      install_requires=['lxml'],
       test_suite="nose.collector"
     )

@@ -156,9 +156,10 @@ class Exercise(dict):
             exercise.tags.append(uni(tag.text))
         return exercise
     
-    def __str__(self):
+    def __repr__(self):
         return ("Exercise(" + 
                 ", ".join("{}={}".format(attr,getattr(self, attr)) for attr in self.attributes) + 
                 ")")
     
-    __repr__ = __str__
+    def __str__(self):
+        return ('Exercise<{}>'.format(self.identifier()))

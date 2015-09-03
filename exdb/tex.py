@@ -14,6 +14,7 @@ import hashlib
 COMPILER = "pdflatex"
 COMPILE_ARGS = ["-interaction=nonstopmode", "-no-shell-escape", "-file-line-error"]
 
+
 class CompilationError(Exception):
     """Error indicating that LaTeX preview generation has failed."""
     def __init__(self, msg, log):
@@ -21,7 +22,7 @@ class CompilationError(Exception):
         self.log = log
         
     def __str__(self):
-        return b"{}\n{}".format(self.msg, self.log)
+        return "{}\n{}".format(self.msg, self.log)
 
 
 def makePreview(texcode, lang="DE", preambles=None, files=None):
@@ -101,7 +102,7 @@ def makePreview(texcode, lang="DE", preambles=None, files=None):
                                  cwd=tmpdir, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
         shutil.rmtree(tmpdir)
-        raise CompilationError(str(e), e.output)
+        raise CompilationError(str(e), e.output.decode())
     try:
         subprocess.check_call(["convert", "-density", "200", "template.pdf", "preview.png"],
                               cwd=tmpdir)

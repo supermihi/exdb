@@ -7,8 +7,9 @@
 
 from __future__ import unicode_literals
 
-import io, os, subprocess, shutil
+import io, os, subprocess, shutil, logging
 from os.path import basename, dirname, join, exists, relpath
+
 
 class PushError(IOError):
     """Raised if changes to the repo cannot be pushed."""
@@ -18,12 +19,15 @@ class PushError(IOError):
 def repoPath():
     """The absolute path of the hg repository."""
     import exdb
-    return join(exdb.instancePath, "repo")
+    return join(exdb.instancePath, 'repo')
 
 
 def remoteUrl():
     """The remote URL of the repository, if configured."""
-    return callHg("showconfig", "paths.default")
+    try:
+        return callHg("showconfig", "paths.default").strip()
+    except subprocess.CalledProcessError as e:
+        return ''
 
 
 def templatePath():
@@ -43,6 +47,7 @@ def exercisePath(exercise=None, creator=None, number=None):
         identifier = "{}{}".format(creator, number)
     return join(repoPath(), 'exercises', identifier)
 
+
 def xmlPath(*args, **kwargs):
     """Return the path of the exercise's XML file. Takes the same arguments as *exercisePath*.
     """
@@ -57,25 +62,25 @@ def callHg(*args, **kwargs):
     """
     if "cwd" not in kwargs:
         kwargs["cwd"] = repoPath()
-    return subprocess.check_output(["hg"] + list(args), **kwargs)
+    return subprocess.check_output(['hg'] + list(args), **kwargs).decode()
 
 
 def initRepository(source=None):
-    """Ensure that an initial exercise repository exists.
-    
-    If the "repo" directory already exists, nothing happens. Otherwise, if *source* is given,
-    the repository is cloned from that URI; if not, an initial repository is created with the
-    default templates provided by this package.
+    """Initializes the repository module. This method ensures that a repository with an appropriate
+    layout exists. If `source` is given, the repository is cloned from that URI if necessary. Other-
+    wise, a new mercurial repo is initialized with the default structure.
     """
     path = repoPath()
     if not exists(path):
         os.makedirs(path)
-    hgChanges = False
-    if not exists(join(path, ".hg")):
+    repositoryChanged = False
+    # create or clone repository if none exists
+    if not exists(join(path, '.hg')):
         if source:
-            callHg("clone", source, path)
+            callHg('clone', source, path)
         else:
-            callHg("init")
+            callHg('init')
+    # create "templates" and "exercises" directories if they don't exist
     for subdir in ("templates", "exercises"):
         if not exists(join(path, subdir)):
             os.mkdir(join(path, subdir))
@@ -85,13 +90,13 @@ def initRepository(source=None):
         if not exists(join(templatePath(), texfile)):
             shutil.copy(join(myDir, texfile), templatePath())
             callHg("add", join("templates", texfile))
-            hgChanges = True
+            repositoryChanged = True
     tagCatFile = join(path, "tagCategories.xml")
     if not exists(tagCatFile):
         from . import tags
         tags.storeTree(tags.initialTree())
         callHg("add", tagCatFile)
-    if hgChanges:
+    if repositoryChanged:
         callHg("commit", "-u", "system", "-m", "Initial setup")
         pushIfRemote()
 
@@ -121,25 +126,33 @@ def loadFromXML(creator, number):
 
 
 def compileSnippets(exercise, files, old=None, copy=False, init=False):
-    """Compiles all TeX snippets of *exercise* or raises an error if this is not possible.
-    
-    *files* is a dict mapping filename to data of newly uploaded files.
-    
-    If *copy* is True, successfully compiled previews are copied into the exercise directory in the
-    repository, i.e., become the "official" previews.
-    If the exercise existed before, it should be given in *old*. This function will only recompile
-    parts that have potentially changed against the old version.
-    
-    Returns a dictionary mapping (textype,lang) tuples to (previewtype, path) tuples, where
-    *previewtype* is one of "preview" and "temp" and *path* is the absolute image path.
-    
-    *init* enables a special mode made for initializing the repository after e.g. cloning. It
-    generates all previews which do not yet exist in the filesystem (implies *copy=True*).
-    
+    """Compiles all TeX snippets of `exercise` or raises an error if this is not possible.
+
+    Parameters
+    ----------
+    files : dict
+        Dictionary mapping file name to data of newly uploaded files.
+    copy : bool
+        If ``True``, successfully compiled previews are copied into the exercise directory in the
+        repository, i.e., become the "official" previews.
+    old: Exercise
+        Previous version of the exercise object, if exists. Helps to only recompile parts that have
+        changed compared to the old version.
+    init : bool
+        Enables a special mode made for initializing the repository after e.g. cloning. It
+        generates all previews which do not yet exist in the filesystem (implies ``copy=True``).
+
     If compilation of a snippet fails, a tex.CompilationError exception is raised. Besides its
     normal attribute, the *successful* attribute contains the dictionary that would normally be
     returned (containing links to all snippets compiled successfully so far), and the *textype*
     and *lang* attributes of the exception tell which snippet failed.
+
+    Returns
+    ------
+    dict
+        Returns a dictionary mapping (textype,lang) tuples to (previewtype, path) tuples, where
+        ``previewtype`` is one of ``"preview"`` and ``"temp"`` and ``path`` is the absolute image
+        path.
     """
     if old:
         files = files.copy()
@@ -173,6 +186,9 @@ def compileSnippets(exercise, files, old=None, copy=False, init=False):
                             continue
                     except KeyError:
                         pass
+                if init:
+                    logging.info('Compiling initial TeX preview of {}/{}/{}'
+                                 .format(exercise, textype, lang))
                 imgpath = tex.makePreview(code, lang, exercise.tex_preamble, files)
                 ret[textype, lang] = ("temp", imgpath)
                 if copy:
@@ -261,32 +277,32 @@ def updateTagTree(renames, user):
 
 def pushIfRemote():
     """Push the repository if a remote address is configured."""
-    ans = callHg("showconfig", "paths.default")
-    if len(ans) > 3:
+    ans = remoteUrl()
+    if len(ans) > 0:
         try:
-            callHg("push")
+            callHg('push')
         except subprocess.CalledProcessError:
-            raise PushError("Failed to push changes to remote repository.\n\n"
-                            "If this problem persists, please contact administrator.")
+            raise PushError('Failed to push changes to remote repository.\n\n'
+                            'If this problem persists, please contact administrator.')
 
 
 def history(maxEntries=10):
-    ans = callHg("log", "--template", "{author}\t{date|isodate}\t{desc}\n", "-l", str(maxEntries))
+    ans = callHg('log', '--template', '{author}\t{date|isodate}\t{desc}\n', '-l', str(maxEntries))
     entries = []
     for line in ans.splitlines(False):
-        author, date, description = line.split("\t")
-        descriptionParts = description.split(" ")
+        author, date, description = line.split('\t')
+        descriptionParts = description.split(' ')
         action = descriptionParts[0]
-        entry = {"author": author, "date": date}
+        entry = {'author': author, 'date': date}
         try:
-            if action in ("ADD", "REMOVE", "EDIT"):
+            if action in ('ADD', 'REMOVE', 'EDIT'):
                 creator, number = descriptionParts[1:]
-                entry.update({"action": action, "creator": creator, "number": number})
-            elif action == "TAGS":
-                entry.update({"action": action})
+                entry.update({'action': action, 'creator': creator, 'number': number})
+            elif action == 'TAGS':
+                entry.update({'action': action})
             else:
-                entry.update({"description": description})
+                entry.update({'description': description})
         except ValueError:
-            entry.update({"description": description})
+            entry.update({'description': description})
         entries.append(entry)
     return entries

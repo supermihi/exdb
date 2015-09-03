@@ -9,8 +9,9 @@ from __future__ import unicode_literals, print_function
 
 from os.path import exists, join
 import json
+import sys
 from collections import OrderedDict
-from itertools import izip_longest
+from itertools import zip_longest
 
 from lxml import etree
 from lxml.builder import E
@@ -77,7 +78,7 @@ def readTreeFromTable(conn):
 def compareTrees(tree1, tree2):
     """Return if tag trees *tree1* and *tree2* are equal.
     """
-    for pre, post in izip_longest(tree1.iter(), tree2.iter(), fillvalue=None):
+    for pre, post in zip_longest(tree1.iter(), tree2.iter(), fillvalue=None):
         if pre is None or post is None:
             return False
         if pre.tag != post.tag:
@@ -153,4 +154,4 @@ def storeTree(tree):
         except KeyError:
             pass
     with open(join(repoPath(), "tagCategories.xml"), "wt") as f:
-        f.write(etree.tostring(tree, pretty_print=True, xml_declaration=True, encoding="utf-8"))
+        f.write(etree.tostring(tree, pretty_print=True, encoding=str))

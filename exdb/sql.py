@@ -41,14 +41,14 @@ def dumpTexDict(code):
     return json.dumps(code, ensure_ascii=False, sort_keys=True, indent=2)
 
 sqlite3.register_adapter(dict, dumpTexDict)
-sqlite3.register_adapter(datetime, lambda date: date.strftime(Exercise.DATEFMT))
+#sqlite3.register_adapter(datetime, lambda date: date.strftime(Exercise.DATEFMT))
 
 
 def parseTexDict(dump):
-    return json.loads(dump)
+    return json.loads(dump.decode('utf-8'))
 
 sqlite3.register_converter("TEXDICT", parseTexDict)
-sqlite3.register_converter("DATETIME", lambda s: datetime.strptime(s, Exercise.DATEFMT))
+#sqlite3.register_converter("DATETIME", lambda s: datetime.strptime(s, Exercise.DATEFMT))
 
 
 def connect():

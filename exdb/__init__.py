@@ -5,25 +5,23 @@
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
 
-from os.path import dirname, exists, join, normpath, relpath
-from os import mkdir, makedirs, remove
+from os.path import dirname, exists, join, normpath
+from os import mkdir, makedirs
 import sys
-import shutil, subprocess
+import subprocess
 import datetime
 import logging
-
-logger = logging.getLogger("exdb")
 
 instancePath = None
 
 
-def init(path, repository=None, level=logging.WARNING):
-    """Initialize the exdb package with instance directory *path*.
+def init(path, repository=None, level=logging.INFO):
+    """Initialize the exdb package with instance directory `path`.
     
     This function intelligently creates those parts of the instance directory that don't yet exist:
-    - if the "repo" subdirectory does not exist or does not contain a hg repository, it is
-      initalized and populated with the initial directory structure. Tex templates are added and
-      commited. If the *repository* argument is given, the repository is cloned from that URI 
+    - if the ``repo`` subdirectory does not exist or does not contain a hg repository, it is
+      initalized and populated with the initial directory structure. TeX templates are added and
+      commited. If the `repository` argument is given, the repository is cloned from that URI
       instead.
     - the directory for temporary preview images is created
     - the database is created and populated
@@ -33,15 +31,16 @@ def init(path, repository=None, level=logging.WARNING):
         return
     global instancePath
     instancePath = path
-    logger.setLevel(level)
-    logger.addHandler(logging.StreamHandler(sys.stderr))
+    logging.basicConfig(level=level)
     if not exists(path):
+        logging.info('Creating previously non-existing instance directory "{}"'.format(path))
         makedirs(path)
     repo.initRepository(repository)
     previewPath = join(instancePath, "previews")
     if not exists(previewPath):
         mkdir(previewPath)
     if sql.initDatabase():
+        logging.info('Initializing SQLite database')
         populateDatabase()
     for exercise in sql.exercises():
         repo.compileSnippets(exercise, {}, init=True)
@@ -72,7 +71,7 @@ def populateDatabase():
     conn = sql.connect()
     tags.initTagsTable(conn)
     for xmlPath in sorted(glob.glob(join(repo.repoPath(), "exercises", "*", "*.xml"))):
-        logger.info("reading exercise {}".format(xmlPath))
+        logging.info("reading exercise {}".format(xmlPath))
         exercise = Exercise.fromXMLFile(xmlPath)
         #xml = open(xmlPath, "rb").read()
         #exercise = Exercise.fromXMLString(xml)
